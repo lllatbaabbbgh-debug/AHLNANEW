@@ -32,9 +32,21 @@ workflows:
           if ls build/ios/ipa/*.ipa 1> /dev/null 2>&1; then
             echo "IPA exists"
           else
-            echo "IPA missing, packaging Runner.app into IPA"
+            echo "IPA missing, trying to package Runner.app"
+            APP_PATH=""
+            if [ -d build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app ]; then
+              APP_PATH="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+            elif [ -d build/ios/iphoneos/Runner.app ]; then
+              APP_PATH="build/ios/iphoneos/Runner.app"
+            else
+              APP_PATH=$(find build -type d -name Runner.app | head -n 1)
+            fi
+            if [ -z "$APP_PATH" ]; then
+              echo "Runner.app not found; skipping fallback"
+              exit 1
+            fi
             mkdir -p build/ios/ipa/Payload
-            cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/Runner.app
+            cp -R "$APP_PATH" build/ios/ipa/Payload/Runner.app
             cd build/ios/ipa
             zip -r Runner.ipa Payload
             rm -rf Payload
