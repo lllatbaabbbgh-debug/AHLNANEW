@@ -26,7 +26,7 @@ workflows:
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-      - name: Fallback: package IPA if missing
+      - name: "Fallback: package IPA if missing"
         script: |
           set -e
           if ls build/ios/ipa/*.ipa 1> /dev/null 2>&1; then
