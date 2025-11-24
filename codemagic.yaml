@@ -1,10 +1,12 @@
 workflows:
-  ios_unsigned:
-    name: iOS Unsigned IPA
+  ios_unsigned_release:
+    name: iOS Unsigned IPA (Release)
     max_build_duration: 60
     environment:
       flutter: stable
       xcode: latest
+      groups:
+        - supabase
     triggering:
       events:
         - push
@@ -17,18 +19,16 @@ workflows:
         script: |
           flutter clean
           flutter pub get
-      - name: Build IPA without codesign (Flutter)
+      - name: Build IPA without codesign (Release + env vars)
         script: |
           set -e
-          flutter clean
-          flutter pub get
-          flutter build ipa --no-codesign
+          flutter build ipa --no-codesign --release \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
+            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
       - name: Verify IPA artifact
         script: |
           set -e
-          ls -lah build/ios/ipa || true
-      - name: List artifacts
-        script: |
           ls -lah build/ios/ipa || true
     artifacts:
       - build/ios/ipa/*.ipa
@@ -39,3 +39,36 @@ workflows:
         notify:
           success: true
           failure: true
+
+  android_release:
+    name: Android APK (Release)
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      vars:
+        ANDROID_HOME: /opt/android-sdk
+      groups:
+        - supabase
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: ".*"
+          include: true
+          source: true
+    scripts:
+      - name: Flutter clean & pub get
+        script: |
+          flutter clean
+          flutter pub get
+      - name: Build Android Release APK (env vars)
+        script: |
+          set -e
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+      - name: List APK artifacts
+        script: |
+          ls -lah build/app/outputs/flutter-apk/ || true
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
