@@ -1,0 +1,23 @@
+# Flutter/Dart
+.dart_tool/
+build/
+**/*.lock
+
+# Android
+android/.gradle/
+
+# iOS
+ios/Pods/
+ios/.generated/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+
+# IDEs
+.idea/
+.vscode/
+
+# Others
+*.iml
+*.log
+*.tmp

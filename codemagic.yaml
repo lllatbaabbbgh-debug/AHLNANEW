@@ -1,0 +1,36 @@
+workflows:
+  ios_unsigned:
+    name: iOS Unsigned IPA
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: ".*"
+          include: true
+          source: true
+    scripts:
+      - name: Flutter clean & pub get
+        script: |
+          flutter clean
+          flutter pub get
+      - name: Build IPA without codesign (Flutter)
+        script: |
+          set -e
+          flutter build ipa --no-codesign
+      - name: List artifacts
+        script: |
+          ls -lah build/ios/ipa || true
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - your@email.com
+        notify:
+          success: true
+          failure: true
