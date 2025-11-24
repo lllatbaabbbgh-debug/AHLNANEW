@@ -26,12 +26,26 @@ workflows:
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+      - name: Fallback: package IPA if missing
+        script: |
+          set -e
+          if ls build/ios/ipa/*.ipa 1> /dev/null 2>&1; then
+            echo "IPA exists"
+          else
+            echo "IPA missing, packaging Runner.app into IPA"
+            mkdir -p build/ios/ipa/Payload
+            cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/Runner.app
+            cd build/ios/ipa
+            zip -r Runner.ipa Payload
+            rm -rf Payload
+          fi
       - name: Verify IPA artifact
         script: |
           set -e
           ls -lah build/ios/ipa || true
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/**/**/*.ipa
     publishing:
       email:
         recipients:
@@ -72,3 +86,4 @@ workflows:
           ls -lah build/app/outputs/flutter-apk/ || true
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
+      - build/**/**/app-release.apk
