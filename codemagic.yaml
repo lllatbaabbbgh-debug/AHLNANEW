@@ -19,6 +19,11 @@ workflows:
         script: |
           flutter clean
           flutter pub get
+      - name: CocoaPods install with repo update
+        script: |
+          cd ios
+          pod install --repo-update
+          cd ..
       - name: Build IPA without codesign (Release + env vars)
         script: |
           set -e
