@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme.dart';
+import 'package:liquid_swipe/liquid_swipe.dart';
 import 'core/storage.dart';
 import 'core/supabase_client.dart';
 import 'screens/login_screen.dart';
@@ -65,11 +66,16 @@ class RootScaffold extends StatefulWidget {
 
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
+  late final List<Widget> _tabs;
 
-  final List<Widget> _tabs = const [
-    HomeScreen(),
-    ProfileScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _tabs = [
+      const HomeScreen(key: ValueKey('tab_menu')),
+      const ProfileScreen(key: ValueKey('tab_profile')),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
