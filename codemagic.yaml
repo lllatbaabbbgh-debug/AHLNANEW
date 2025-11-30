@@ -15,17 +15,14 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: iOS Full Unsigned Build Pipeline
+      - name: iOS Full Unsigned Build Pipeline (Nuclear)
         script: |
           set -e
           echo "Triggering build at $(date)"
           echo "========================================"
-          echo "1. Cleaning Environment..."
+          echo "1. Tear Down (remove ios/)..."
           echo "========================================"
-          rm -rf ios/Pods
-          rm -f ios/Podfile.lock
-          rm -rf ios/Runner.xcworkspace
-          rm -rf ios/.symlinks
+          rm -rf ios
           rm -rf build
           # Extra macOS cleanup (Codemagic runner)
           rm -rf ~/Library/Developer/Xcode/DerivedData || true
@@ -33,31 +30,24 @@ workflows:
           flutter clean
 
           echo "========================================"
-          echo "2. Fetching Packages..."
+          echo "2. Reconstruct (flutter create ios)..."
+          echo "========================================"
+          flutter create . --platforms ios
+
+          echo "========================================"
+          echo "3. Config Generation (pub get)..."
           echo "========================================"
           flutter pub get
 
           echo "========================================"
-          echo "3. MAGIC FIX: Creating Dummy Config..."
-          echo "========================================"
-          mkdir -p ios/Flutter
-          touch ios/Flutter/Generated.xcconfig
-          echo "FLUTTER_ROOT=$(pwd)" > ios/Flutter/Generated.xcconfig
-          echo "FLUTTER_APPLICATION_PATH=$(pwd)" >> ios/Flutter/Generated.xcconfig
-          echo "COCOAPODS_PARALLEL_CODE_SIGN=true" >> ios/Flutter/Generated.xcconfig
-
-          echo "========================================"
-          echo "4. Installing CocoaPods..."
+          echo "4. Dependency Installation (Pods)..."
           echo "========================================"
           cd ios
-          rm -rf Pods
-          rm -f Podfile.lock
-          pod repo update
           pod install --repo-update
           cd ..
 
           echo "========================================"
-          echo "5. Building IPA..."
+          echo "5. Final Build (IPA, unsigned)..."
           echo "========================================"
           flutter build ipa --no-codesign --release \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
