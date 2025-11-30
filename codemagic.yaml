@@ -15,24 +15,32 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Flutter clean & pub get
-        script: |
-          flutter clean
-          flutter pub get
-      - name: Prepare iOS config (Generated.xcconfig)
+      - name: iOS Full Unsigned Build Pipeline
         script: |
           set -e
-          flutter build ios --config-only
-      - name: CocoaPods install with repo update
-        script: |
+          echo "========================================"
+          echo "1. Cleaning and Fetching Dependencies..."
+          echo "========================================"
+          flutter clean
+          flutter pub get
+
+          echo "========================================"
+          echo "2. Generating iOS Config Files (Crucial Step)..."
+          echo "========================================"
+          flutter build ios --config-only --no-codesign
+
+          echo "========================================"
+          echo "3. Installing CocoaPods..."
+          echo "========================================"
           cd ios
           rm -rf Pods
           rm -f Podfile.lock
           pod install --repo-update
           cd ..
-      - name: Build IPA without codesign (Release + env vars)
-        script: |
-          set -e
+
+          echo "========================================"
+          echo "4. Building IPA..."
+          echo "========================================"
           flutter build ipa --no-codesign --release \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
