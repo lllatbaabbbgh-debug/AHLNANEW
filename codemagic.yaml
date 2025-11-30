@@ -24,7 +24,12 @@ workflows:
           echo "========================================"
           rm -rf ios/Pods
           rm -f ios/Podfile.lock
+          rm -rf ios/Runner.xcworkspace
+          rm -rf ios/.symlinks
           rm -rf build
+          # Extra macOS cleanup (Codemagic runner)
+          rm -rf ~/Library/Developer/Xcode/DerivedData || true
+          pod cache clean --all || true
           flutter clean
 
           echo "========================================"
@@ -47,6 +52,7 @@ workflows:
           cd ios
           rm -rf Pods
           rm -f Podfile.lock
+          pod repo update
           pod install --repo-update
           cd ..
 
