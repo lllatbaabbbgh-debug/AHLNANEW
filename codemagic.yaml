@@ -19,6 +19,10 @@ workflows:
         script: |
           flutter clean
           flutter pub get
+      - name: Prepare iOS config (Generated.xcconfig)
+        script: |
+          set -e
+          flutter build ios --config-only
       - name: CocoaPods install with repo update
         script: |
           cd ios
