@@ -19,18 +19,29 @@ workflows:
         script: |
           set -e
           echo "========================================"
-          echo "1. Cleaning and Fetching Dependencies..."
+          echo "1. Cleaning Environment..."
           echo "========================================"
+          rm -rf ios/Pods
+          rm -f ios/Podfile.lock
+          rm -rf build
           flutter clean
+
+          echo "========================================"
+          echo "2. Fetching Packages..."
+          echo "========================================"
           flutter pub get
 
           echo "========================================"
-          echo "2. Generating iOS Config Files (Crucial Step)..."
+          echo "3. MAGIC FIX: Creating Dummy Config..."
           echo "========================================"
-          flutter build ios --config-only --no-codesign
+          mkdir -p ios/Flutter
+          touch ios/Flutter/Generated.xcconfig
+          echo "FLUTTER_ROOT=$(pwd)" > ios/Flutter/Generated.xcconfig
+          echo "FLUTTER_APPLICATION_PATH=$(pwd)" >> ios/Flutter/Generated.xcconfig
+          echo "COCOAPODS_PARALLEL_CODE_SIGN=true" >> ios/Flutter/Generated.xcconfig
 
           echo "========================================"
-          echo "3. Installing CocoaPods..."
+          echo "4. Installing CocoaPods..."
           echo "========================================"
           cd ios
           rm -rf Pods
@@ -39,7 +50,7 @@ workflows:
           cd ..
 
           echo "========================================"
-          echo "4. Building IPA..."
+          echo "5. Building IPA..."
           echo "========================================"
           flutter build ipa --no-codesign --release \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
