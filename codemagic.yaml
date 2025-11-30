@@ -18,6 +18,7 @@ workflows:
       - name: iOS Full Unsigned Build Pipeline
         script: |
           set -e
+          echo "Triggering build at $(date)"
           echo "========================================"
           echo "1. Cleaning Environment..."
           echo "========================================"
