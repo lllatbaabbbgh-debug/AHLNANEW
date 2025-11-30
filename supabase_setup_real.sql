@@ -121,3 +121,52 @@ CREATE TRIGGER update_food_items_updated_at BEFORE UPDATE ON public.food_items
 
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 11. إنشاء جدول العروضات (Offers)
+CREATE TABLE IF NOT EXISTS public.offers (
+    id TEXT PRIMARY KEY,
+    url TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- سياسات القراءة والكتابة للعروضات
+CREATE POLICY IF NOT EXISTS "public_read_offers" ON public.offers
+    FOR SELECT USING (true);
+
+CREATE POLICY IF NOT EXISTS "anon_upsert_offers" ON public.offers
+    FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY IF NOT EXISTS "anon_update_offers" ON public.offers
+    FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE public.offers ENABLE ROW LEVEL SECURITY;
+
+-- 12. جدول سجل الطلبات (Order Records)
+CREATE TABLE IF NOT EXISTS public.order_records (
+    id TEXT PRIMARY KEY,
+    customer_name TEXT,
+    phone TEXT,
+    address TEXT,
+    order_type TEXT,
+    status TEXT,
+    total_price DECIMAL(10,2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE POLICY IF NOT EXISTS "public_read_order_records" ON public.order_records
+    FOR SELECT USING (true);
+CREATE POLICY IF NOT EXISTS "anon_insert_order_records" ON public.order_records
+    FOR INSERT TO anon WITH CHECK (true);
+ALTER TABLE public.order_records ENABLE ROW LEVEL SECURITY;
+
+-- 13. سياسات تحديث/حذف على الطلبات لتطبيق الأدمن (للاختبار)
+-- تحذير: هذه السياسات تسمح للمجهول بالتحديث/الحذف. يُستحسن استخدام Service Role
+-- في الإنتاج. يمكن تعطيلها لاحقاً.
+CREATE POLICY IF NOT EXISTS "anon_update_orders" ON public.orders
+    FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "anon_delete_orders" ON public.orders
+    FOR DELETE TO anon USING (true);
+CREATE POLICY IF NOT EXISTS "anon_update_order_items" ON public.order_items
+    FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS "anon_delete_order_items" ON public.order_items
+    FOR DELETE TO anon USING (true);

@@ -5,13 +5,19 @@ class Storage {
   static const _kName = 'name';
   static const _kPhone = 'phone';
   static const _kAddress = 'address';
+  static const _kSupabaseUrl = 'supabase_url';
+  static const _kSupabaseAnon = 'supabase_anon_key';
 
   static Future<bool> isRegistered() async {
     final p = await SharedPreferences.getInstance();
     return p.getBool(_kRegistered) ?? false;
   }
 
-  static Future<void> saveProfile({required String name, required String phone, required String address}) async {
+  static Future<void> saveProfile({
+    required String name,
+    required String phone,
+    required String address,
+  }) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kName, name);
     await p.setString(_kPhone, phone);
@@ -27,5 +33,21 @@ class Storage {
       'address': p.getString(_kAddress) ?? '',
     };
   }
-}
 
+  static Future<void> saveSupabaseConfig({
+    required String url,
+    required String anonKey,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kSupabaseUrl, url);
+    await p.setString(_kSupabaseAnon, anonKey);
+  }
+
+  static Future<Map<String, String>> loadSupabaseConfig() async {
+    final p = await SharedPreferences.getInstance();
+    return {
+      'url': p.getString(_kSupabaseUrl) ?? '',
+      'anon': p.getString(_kSupabaseAnon) ?? '',
+    };
+  }
+}

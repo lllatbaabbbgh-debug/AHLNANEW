@@ -4,7 +4,6 @@ import 'dart:io';
 import '../../core/supabase_client.dart';
 import '../../models/food_item.dart';
 import '../../core/repos/food_repository.dart';
-import '../../core/sample_data.dart';
 
 class AdminMenuScreen extends StatefulWidget {
   const AdminMenuScreen({super.key});
@@ -52,30 +51,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     });
   }
 
-  Future<void> _initializeSampleData() async {
-    try {
-      // Check if database is empty
-      final currentItems = await repo.fetchByCategory('Lahm Bi Ajeen');
-      if (currentItems.isEmpty) {
-        // Initialize with sample data
-        for (final item in sampleFoodItems) {
-          await repo.add(item);
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تمت إضافة البيانات التجريبية بنجاح')),
-        );
-        await _loadAll();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('قاعدة البيانات تحتوي على بيانات بالفعل')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في تهيئة البيانات: $e')),
-      );
-    }
-  }
+  
 
   void _addItem() {
     final nameCtrl = TextEditingController();
@@ -303,13 +279,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                     const SizedBox(width: 12),
                     OutlinedButton(onPressed: _loadCategory, child: const Text('مزامنة من القاعدة')),
                     const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: _initializeSampleData,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.secondary,
-                      ),
-                      child: const Text('تهيئة البيانات التجريبية'),
-                    ),
+                    
                   ],
                 ),
               ),

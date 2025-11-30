@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/admin_menu_screen.dart';
 import 'screens/admin_records_screen.dart';
+import 'screens/admin_offers_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +42,7 @@ class _AdminRootState extends State<AdminRoot> {
       const AdminHomeScreen(),
       const AdminMenuScreen(),
       const AdminRecordsScreen(),
+      const AdminOffersScreen(),
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('لوحة إدارة أهلنا داقوق')),
@@ -74,6 +76,15 @@ class _AdminRootState extends State<AdminRoot> {
               selected: _index == 2,
               onTap: () {
                 setState(() => _index = 2);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.local_offer),
+              title: const Text('العروضات'),
+              selected: _index == 3,
+              onTap: () {
+                setState(() => _index = 3);
                 Navigator.pop(context);
               },
             ),

@@ -1,10 +1,8 @@
 platform :ios, '13.0'
 
-# Disable input/output paths to speed up pod install
 install! 'cocoapods', :disable_input_output_paths => true
 
-flutter_root = File.expand_path('..', __dir__)
-load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
+require_relative '../.ios/Flutter/podhelper.rb'
 
 target 'Runner' do
   use_frameworks! :linkage => :static
@@ -19,4 +17,3 @@ post_install do |installer|
     end
   end
 end
-

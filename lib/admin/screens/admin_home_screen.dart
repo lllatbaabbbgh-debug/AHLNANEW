@@ -49,14 +49,42 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   void _approve(int idx) async {
     final id = orders[idx].id;
-    await repo.setStatus(id, 'cooking');
-    await _loadOrders();
+    try {
+      await repo.setStatus(id, 'cooking');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم بدء التحضير')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e')),
+        );
+      }
+    } finally {
+      await _loadOrders();
+    }
   }
 
   void _cancel(int idx) async {
     final id = orders[idx].id;
-    await repo.deleteOrder(id);
-    await _loadOrders();
+    try {
+      await repo.deleteOrder(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم إلغاء الطلب')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e')),
+        );
+      }
+    } finally {
+      await _loadOrders();
+    }
   }
 
   void _complete(int idx) async {
@@ -64,11 +92,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     try {
       await repo.setStatus(id, 'completed');
       print('✅ Order $id marked completed');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم الإكمال')),
+        );
+      }
     } catch (e) {
       print('❌ Failed to complete order $id: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('فشل الإكمال: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('فشل الإكمال: $e')),
+        );
+      }
     } finally {
       await _loadOrders();
     }

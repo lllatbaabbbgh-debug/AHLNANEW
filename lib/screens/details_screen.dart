@@ -12,19 +12,23 @@ class DetailsScreen extends StatefulWidget {
   State<DetailsScreen> createState() => _DetailsScreenState();
 }
 
-class _DetailsScreenState extends State<DetailsScreen> {
+class _DetailsScreenState extends State<DetailsScreen> with SingleTickerProviderStateMixin {
   late final TextEditingController _qtyController;
   bool _initialized = false;
+  late final AnimationController _rotController;
 
   @override
   void initState() {
     super.initState();
     _qtyController = TextEditingController(text: '1');
+    _rotController = AnimationController(vsync: this, duration: const Duration(seconds: 20))
+      ..repeat();
   }
 
   @override
   void dispose() {
     _qtyController.dispose();
+    _rotController.dispose();
     super.dispose();
   }
 
@@ -44,31 +48,33 @@ class _DetailsScreenState extends State<DetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 10,
-              child: Hero(
-                tag: widget.item.heroTag,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(24),
-                  ),
-                  child: Image.network(
-                    widget.item.imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        color: Colors.black26,
-                        child: const Center(child: CircularProgressIndicator()),
-                      );
-                    },
-                    errorBuilder: (context, error, stack) {
-                      return Container(
-                        color: Colors.black26,
-                        child: const Center(child: Icon(Icons.broken_image)),
-                      );
-                    },
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Hero(
+                  tag: widget.item.id,
+                  child: RotationTransition(
+                    turns: _rotController,
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.58,
+                      height: MediaQuery.of(context).size.width * 0.58,
+                      decoration: const BoxDecoration(shape: BoxShape.circle),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.network(
+                        widget.item.imageUrl,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(child: CircularProgressIndicator());
+                        },
+                        errorBuilder: (context, error, stack) {
+                          return Container(
+                            color: Colors.black26,
+                            child: const Center(child: Icon(Icons.broken_image)),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
