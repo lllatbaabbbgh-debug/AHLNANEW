@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import '../core/supabase_client.dart';
-import '../core/theme.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/admin_menu_screen.dart';
 import 'screens/admin_records_screen.dart';
@@ -17,11 +17,53 @@ class AhlnaAdminApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const primaryGreen = Color(0xFF23AA49);
+    const bgGrey = Color(0xFFF6F7F9);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkLuxury,
-      home: const AdminRoot(),
+      title: 'لوحة الإدارة',
+
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        primaryColor: primaryGreen,
+        scaffoldBackgroundColor: bgGrey,
+
+        colorScheme: const ColorScheme.light(
+          primary: primaryGreen,
+          secondary: primaryGreen,
+          surface: Colors.white,
+          onSurface: Color(0xFF1B1B1B),
+        ),
+
+        appBarTheme: const AppBarTheme(
+          backgroundColor: bgGrey,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          centerTitle: false,
+          iconTheme: IconThemeData(color: Colors.black87),
+        ),
+
+        textTheme: const TextTheme(
+          headlineSmall: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+          bodyMedium: TextStyle(color: Colors.black87),
+        ),
+
+        iconTheme: const IconThemeData(color: Colors.black87),
+      ),
+
       locale: const Locale('ar'),
+      supportedLocales: const [Locale('ar'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const AdminRoot(),
     );
   }
 }
@@ -38,60 +80,224 @@ class _AdminRootState extends State<AdminRoot> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryGreen = theme.primaryColor;
+
     final screens = [
       const AdminHomeScreen(),
       const AdminMenuScreen(),
       const AdminRecordsScreen(),
       const AdminOffersScreen(),
     ];
+
+    final titles = [
+      'الطلبات الحالية',
+      'إدارة المنيو',
+      'سجل الطلبات',
+      'العروضات',
+    ];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('لوحة إدارة أهلنا داقوق')),
-      drawer: Drawer(
-        child: ListView(
-          children: [
-            const DrawerHeader(
-              child: Text('أهلنا داقوق', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+      body: Row(
+        children: [
+          // القائمة الجانبية (Sidebar)
+          Container(
+            width: 260,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(4, 0),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.receipt_long),
-              title: const Text('الطلبات'),
-              selected: _index == 0,
-              onTap: () {
-                setState(() => _index = 0);
-                Navigator.pop(context);
-              },
+            child: Column(
+              children: [
+                // ✅✅✅ تم تعديل الارتفاع هنا من 140 إلى 180 ✅✅✅
+                Container(
+                  height: 180,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: primaryGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.storefront_rounded,
+                          size: 35,
+                          color: primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 15), // زدنا المسافة قليلاً
+                      const Text(
+                        'أهلنا داقوق',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 5), // مسافة صغيرة
+                      Text(
+                        'لوحة التحكم',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: Color(0xFFEEEEEE),
+                ),
+                const SizedBox(height: 20),
+
+                // عناصر القائمة
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      _buildMenuItem(
+                        0,
+                        'الطلبات الحالية',
+                        Icons.receipt_long_rounded,
+                      ),
+                      const SizedBox(height: 5),
+                      _buildMenuItem(
+                        1,
+                        'إدارة المنيو',
+                        Icons.restaurant_menu_rounded,
+                      ),
+                      const SizedBox(height: 5),
+                      _buildMenuItem(2, 'سجل الطلبات', Icons.history_rounded),
+                      const SizedBox(height: 5),
+                      _buildMenuItem(3, 'العروضات', Icons.local_offer_rounded),
+                    ],
+                  ),
+                ),
+
+                // تذييل القائمة
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.admin_panel_settings_outlined,
+                        size: 16,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Admin Panel v1.0",
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.restaurant_menu),
-              title: const Text('إدارة المنيو'),
-              selected: _index == 1,
-              onTap: () {
-                setState(() => _index = 1);
-                Navigator.pop(context);
-              },
+          ),
+
+          // محتوى الصفحة
+          Expanded(
+            child: Scaffold(
+              backgroundColor: theme.scaffoldBackgroundColor,
+              appBar: AppBar(
+                title: Text(
+                  titles[_index],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                  ),
+                ),
+                centerTitle: false,
+                backgroundColor: Colors.transparent,
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.grey[700],
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              body: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: screens[_index],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('سجل الطلبات'),
-              selected: _index == 2,
-              onTap: () {
-                setState(() => _index = 2);
-                Navigator.pop(context);
-              },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(int index, String title, IconData icon) {
+    final isSelected = _index == index;
+    final theme = Theme.of(context);
+    final primaryGreen = theme.primaryColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => setState(() => _index = index),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? primaryGreen.withOpacity(0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? primaryGreen.withOpacity(0.2)
+                  : Colors.transparent,
             ),
-            ListTile(
-              leading: const Icon(Icons.local_offer),
-              title: const Text('العروضات'),
-              selected: _index == 3,
-              onTap: () {
-                setState(() => _index = 3);
-                Navigator.pop(context);
-              },
-            ),
-          ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? primaryGreen : Colors.grey[600],
+                size: 22,
+              ),
+              const SizedBox(width: 14),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? primaryGreen : Colors.grey[700],
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              if (isSelected)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 12,
+                  color: primaryGreen,
+                ),
+            ],
+          ),
         ),
       ),
-      body: screens[_index],
     );
   }
 }

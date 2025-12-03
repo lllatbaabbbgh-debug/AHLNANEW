@@ -49,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen>
           key: ValueKey<String>('boot-$c'),
           category: c,
           initialItems: const <FoodItem>[],
-          stream: Stream<List<FoodItem>>.value(const <FoodItem>[]),
+          stream: repo.liveByCategory(c),
           search: _search,
           offerLink: _offerLink,
         ),
@@ -61,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _initializeApp() async {
     try {
-      await Future.wait([_loadOfferLink(), _prefetchAll()]);
+      await _loadOfferLink();
     } catch (e) {
       print('خطأ في تحميل التطبيق: $e');
       if (mounted) {
@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen>
             offerLink: _offerLink,
           );
         } catch (e) {
-          print('⚠️ خطأ في تحميل قسم ${c}: $e');
+          print('⚠️ خطأ في تحميل قسم $c: $e');
           return _CategoryPage(
             key: ValueKey<String>(c),
             category: c,
@@ -505,6 +505,7 @@ class _CategoryPageState extends State<_CategoryPage>
   late PageController _pageController;
   double _currentPage = 0.0;
   String _query = '';
+  bool _loaded = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -513,7 +514,12 @@ class _CategoryPageState extends State<_CategoryPage>
   void initState() {
     super.initState();
     widget.stream.listen((data) {
-      if (mounted) setState(() => _items = data);
+      if (mounted) {
+        setState(() {
+          _items = data;
+          _loaded = true;
+        });
+      }
     });
     _query = widget.search.value;
     widget.search.addListener(() {
@@ -540,6 +546,9 @@ class _CategoryPageState extends State<_CategoryPage>
           }).toList();
 
     if (data.isEmpty) {
+      if (!_loaded) {
+        return const Center(child: CircularProgressIndicator());
+      }
       return const Center(
         child: Text('لا توجد نتائج', style: TextStyle(color: Colors.grey)),
       );
@@ -552,6 +561,7 @@ class _CategoryPageState extends State<_CategoryPage>
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final item = data[index];
+          final disabled = !item.isAvailable;
           return Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -567,27 +577,56 @@ class _CategoryPageState extends State<_CategoryPage>
             child: ListTile(
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  item.imageUrl,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.fastfood, color: Colors.grey),
+                child: Opacity(
+                  opacity: disabled ? 0.45 : 1.0,
+                  child: Image.network(
+                    item.imageUrl,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.fastfood, color: Colors.grey),
+                  ),
                 ),
               ),
               title: Text(
                 item.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: disabled ? Colors.grey : Colors.black,
+                ),
               ),
               subtitle: Text(
                 '${item.price} IQD',
-                style: TextStyle(color: theme.primaryColor),
+                style: TextStyle(
+                  color: disabled ? Colors.grey : theme.primaryColor,
+                ),
               ),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => DetailsScreen(item: item)),
-              ),
+              trailing: disabled
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text('تم نفاذ الكمية'),
+                    )
+                  : null,
+              onTap: () {
+                if (disabled) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم نفاذ الكمية')),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => DetailsScreen(item: item)),
+                );
+              },
             ),
           );
         },
@@ -688,83 +727,12 @@ class _CategoryPageState extends State<_CategoryPage>
                       ),
                     ),
 
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Transform.translate(
-                        offset: cardTranslate,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(30),
-                              topRight: Radius.circular(30),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 30,
-                                offset: const Offset(0, -5),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.name,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-
-                              Text(
-                                item.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                  height: 1.4,
-                                ),
-                              ),
-
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${item.price % 1 == 0 ? item.price.toInt() : item.price} IQD',
-                                    style: TextStyle(
-                                      color: theme.primaryColor,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  CircleAvatar(
-                                    backgroundColor: theme.primaryColor,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.add,
-                                        color: Colors.white,
-                                      ),
-                                      onPressed: () {
-                                        CartProvider.of(context).add(item);
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    _buildBottomDetailCard(
+                      context,
+                      item,
+                      dimmed,
+                      theme,
+                      cardTranslate,
                     ),
                   ],
                 ),
@@ -773,6 +741,112 @@ class _CategoryPageState extends State<_CategoryPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBottomDetailCard(
+    BuildContext context,
+    FoodItem item,
+    bool dimmed,
+    ThemeData theme,
+    Offset cardTranslate,
+  ) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Transform.translate(
+        offset: cardTranslate,
+        child: SafeArea(
+          top: false,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 30,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${item.price % 1 == 0 ? item.price.toInt() : item.price} IQD',
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    CircleAvatar(
+                      backgroundColor:
+                          dimmed ? Colors.grey : theme.primaryColor,
+                      child: IconButton(
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        onPressed: dimmed
+                            ? () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('تم نفاذ الكمية')),
+                                );
+                              }
+                            : () {
+                                CartProvider.of(context).add(item);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('تمت الإضافة إلى السلة'),
+                                    duration:
+                                        const Duration(milliseconds: 500),
+                                    behavior: SnackBarBehavior.floating,
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 100,
+                                      vertical: 20,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                );
+                              },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

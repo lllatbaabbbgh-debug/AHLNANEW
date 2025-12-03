@@ -91,7 +91,7 @@ class AhlnaDaquqApp extends StatelessWidget {
             // 4. الشريط السفلي (Bottom Navigation)
             bottomNavigationBarTheme: const BottomNavigationBarThemeData(
               backgroundColor: Colors.white,
-              selectedItemColor: Color(0xFF23AA49), // أخضر عند الاختيار
+              selectedItemColor: Color.fromARGB(255, 67, 179, 33), // أخضر عند الاختيار
               unselectedItemColor: Color(0xFF9E9E9E), // رمادي عند عدم الاختيار
               elevation: 15,
               type: BottomNavigationBarType.fixed,
@@ -202,6 +202,7 @@ class RootScaffold extends StatefulWidget {
   @override
   State<RootScaffold> createState() => _RootScaffoldState();
 }
+
 
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;

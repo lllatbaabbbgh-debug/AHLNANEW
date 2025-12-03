@@ -16,6 +16,8 @@ class Order {
   final String? orderType;
   OrderStatus status;
   final List<OrderItem> items;
+  final double? customerLat;
+  final double? customerLong;
 
   Order({
     required this.id,
@@ -25,6 +27,8 @@ class Order {
     required this.items,
     this.orderType,
     this.status = OrderStatus.pending,
+    this.customerLat,
+    this.customerLong,
   });
 
   double get totalPrice => items.fold(0.0, (sum, e) => sum + e.item.price * e.quantity);

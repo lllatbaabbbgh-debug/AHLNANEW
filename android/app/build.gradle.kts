@@ -37,6 +37,21 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // تعريف نكهات (Flavors) لتمييز تطبيق الزبون وتطبيق الأدمن
+    flavorDimensions += listOf("app")
+    productFlavors {
+        create("client") {
+            dimension = "app"
+            applicationId = "com.example.ahlna_daquq"
+            resValue("string", "app_name", "Ahlna Client")
+        }
+        create("admin") {
+            dimension = "app"
+            applicationId = "com.example.ahlna_daquq.admin"
+            resValue("string", "app_name", "Ahlna Admin")
+        }
+    }
 }
 
 flutter {

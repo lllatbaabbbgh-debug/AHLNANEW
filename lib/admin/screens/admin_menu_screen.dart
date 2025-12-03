@@ -30,7 +30,8 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     _loadAll();
   }
 
-  List<FoodItem> byCat(String c) => items.where((e) => e.category == c).toList();
+  List<FoodItem> byCat(String c) =>
+      items.where((e) => e.category == c).toList();
 
   Future<void> _loadCategory() async {
     final fetched = await repo.fetchByCategory(selected);
@@ -51,8 +52,6 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     });
   }
 
-  
-
   void _addItem() {
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
@@ -60,7 +59,10 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     final imageCtrl = TextEditingController();
     bool uploading = false;
     Future<void> pickAndUpload() async {
-      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: false);
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: false,
+      );
       if (res == null || res.files.isEmpty) return;
       final f = res.files.first;
       final path = f.path;
@@ -79,75 +81,107 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
         uploading = false;
       }
     }
+
     bool isActive = true;
     showDialog(
       context: context,
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
-        return AlertDialog(
-          backgroundColor: cs.surface,
-          title: const Text('إضافة صنف جديد'),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: selected,
-                    items: categories.map((c) => DropdownMenuItem(value: c, child: Text(categoryAr[c]!))).toList(),
-                    onChanged: (v) => selected = v ?? selected,
-                    decoration: const InputDecoration(labelText: 'القسم'),
-                  ),
-                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'الاسم')),
-                  TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: 'السعر'), keyboardType: TextInputType.number),
-                  TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف'), maxLines: 3),
-                  Row(
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: cs.surface,
+              title: const Text('إضافة صنف جديد'),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: imageCtrl,
-                          decoration: const InputDecoration(labelText: 'رابط الصورة'),
-                        ),
+                      DropdownButtonFormField<String>(
+                        initialValue: selected,
+                        items: categories
+                            .map(
+                              (c) => DropdownMenuItem(
+                                value: c,
+                                child: Text(categoryAr[c]!),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => selected = v ?? selected,
+                        decoration: const InputDecoration(labelText: 'القسم'),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: uploading ? null : pickAndUpload,
-                        child: Text(uploading ? 'جارٍ الرفع...' : 'رفع صورة'),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(labelText: 'الاسم'),
+                      ),
+                      TextField(
+                        controller: priceCtrl,
+                        decoration: const InputDecoration(labelText: 'السعر'),
+                        keyboardType: TextInputType.number,
+                      ),
+                      TextField(
+                        controller: descCtrl,
+                        decoration: const InputDecoration(labelText: 'الوصف'),
+                        maxLines: 3,
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: imageCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'رابط الصورة',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: uploading ? null : pickAndUpload,
+                            child: Text(uploading ? 'جارٍ الرفع...' : 'رفع صورة'),
+                          ),
+                        ],
+                      ),
+                      SwitchListTile(
+                        value: isActive,
+                        onChanged: (v) {
+                          setDialogState(() {
+                            isActive = v;
+                          });
+                        },
+                        title: const Text('متاح؟'),
                       ),
                     ],
                   ),
-                  SwitchListTile(
-                    value: isActive,
-                    onChanged: (v) => isActive = v,
-                    title: const Text('متاح؟'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () async {
-                final price = double.tryParse(priceCtrl.text) ?? 0;
-                final newItem = FoodItem(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  name: nameCtrl.text,
-                  price: price,
-                  description: descCtrl.text,
-                  imageUrl: imageCtrl.text,
-                  category: selected,
-                  isAvailable: isActive,
-                );
-                setState(() => items.add(newItem));
-                await repo.add(newItem);
-                await _loadCategory();
-                if (!context.mounted) return;
-                Navigator.pop(context);
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final price = double.tryParse(priceCtrl.text) ?? 0;
+                    final newItem = FoodItem(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      name: nameCtrl.text,
+                      price: price,
+                      description: descCtrl.text,
+                      imageUrl: imageCtrl.text,
+                      category: selected,
+                      isAvailable: isActive,
+                    );
+                    setState(() => items.add(newItem));
+                    await repo.add(newItem);
+                    await _loadCategory();
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('حفظ'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -160,7 +194,10 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     final imageCtrl = TextEditingController(text: item.imageUrl);
     bool uploading = false;
     Future<void> pickAndUpload() async {
-      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: false);
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: false,
+      );
       if (res == null || res.files.isEmpty) return;
       final f = res.files.first;
       final path = f.path;
@@ -179,68 +216,105 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
         uploading = false;
       }
     }
+
     bool isActive = item.isAvailable;
     showDialog(
       context: context,
       builder: (context) {
         final cs = Theme.of(context).colorScheme;
-        return AlertDialog(
-          backgroundColor: cs.surface,
-          title: const Text('تعديل الصنف'),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'الاسم')),
-                  TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: 'السعر'), keyboardType: TextInputType.number),
-                  TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'الوصف'), maxLines: 3),
-                  Row(
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: cs.surface,
+              title: const Text('تعديل الصنف'),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: imageCtrl,
-                          decoration: const InputDecoration(labelText: 'رابط الصورة'),
-                        ),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(labelText: 'الاسم'),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: uploading ? null : pickAndUpload,
-                        child: Text(uploading ? 'جارٍ الرفع...' : 'رفع صورة'),
+                      TextField(
+                        controller: priceCtrl,
+                        decoration: const InputDecoration(labelText: 'السعر'),
+                        keyboardType: TextInputType.number,
+                      ),
+                      TextField(
+                        controller: descCtrl,
+                        decoration: const InputDecoration(labelText: 'الوصف'),
+                        maxLines: 3,
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: imageCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'رابط الصورة',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: uploading ? null : pickAndUpload,
+                            child: Text(uploading ? 'جارٍ الرفع...' : 'رفع صورة'),
+                          ),
+                        ],
+                      ),
+                      SwitchListTile(
+                        value: isActive,
+                        onChanged: (v) {
+                          setDialogState(() {
+                            isActive = v;
+                          });
+                        },
+                        title: const Text('متاح؟'),
                       ),
                     ],
                   ),
-                  SwitchListTile(
-                    value: isActive,
-                    onChanged: (v) => isActive = v,
-                    title: const Text('متاح؟'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () async {
-                final updated = item.copyWith(
-                  name: nameCtrl.text,
-                  price: double.tryParse(priceCtrl.text) ?? item.price,
-                  description: descCtrl.text,
-                  imageUrl: imageCtrl.text,
-                  isAvailable: isActive,
-                );
-                setState(() {
-                  final idx = items.indexWhere((e) => e.id == item.id);
-                  items[idx] = updated;
-                });
-                await repo.update(updated);
-                if (!context.mounted) return;
-                Navigator.pop(context);
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final updated = item.copyWith(
+                      name: nameCtrl.text,
+                      price: double.tryParse(priceCtrl.text) ?? item.price,
+                      description: descCtrl.text,
+                      imageUrl: imageCtrl.text,
+                      isAvailable: isActive,
+                    );
+                    setState(() {
+                      final idx = items.indexWhere((e) => e.id == item.id);
+                      items[idx] = updated;
+                    });
+                    final ok = await repo.update(updated);
+                    if (!ok) {
+                      setState(() {
+                        final idx = items.indexWhere((e) => e.id == item.id);
+                        items[idx] = item;
+                      });
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تعذر حفظ التغيير')),
+                      );
+                      return;
+                    }
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    await _loadCategory();
+                  },
+                  child: const Text('حفظ'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -275,11 +349,16 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    ElevatedButton(onPressed: _addItem, child: const Text('إضافة صنف')),
+                    ElevatedButton(
+                      onPressed: _addItem,
+                      child: const Text('إضافة صنف'),
+                    ),
                     const SizedBox(width: 12),
-                    OutlinedButton(onPressed: _loadCategory, child: const Text('مزامنة من القاعدة')),
+                    OutlinedButton(
+                      onPressed: _loadCategory,
+                      child: const Text('مزامنة من القاعدة'),
+                    ),
                     const SizedBox(width: 12),
-                    
                   ],
                 ),
               ),
@@ -291,7 +370,10 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                   itemBuilder: (context, index) {
                     final it = list[index];
                     return Container(
-                      decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
@@ -309,22 +391,48 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                           ),
                         ),
                         title: Text(it.name),
-                        subtitle: Text('${it.price % 1 == 0 ? it.price.toInt() : it.price} IQD'),
+                        subtitle: Text(
+                          '${it.price % 1 == 0 ? it.price.toInt() : it.price} IQD',
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Switch(
                               value: it.isAvailable,
                               onChanged: (v) async {
+                                print('🔄 Toggling availability for ${it.name}: $v');
                                 final updated = it.copyWith(isAvailable: v);
+                                print('📦 Updated item data: ${updated.toJson()}');
                                 setState(() {
-                                  final idx = items.indexWhere((e) => e.id == it.id);
+                                  final idx = items.indexWhere(
+                                    (e) => e.id == it.id,
+                                  );
                                   items[idx] = updated;
                                 });
-                                await repo.update(updated);
+                                final ok = await repo.update(updated);
+                                if (!ok) {
+                                  print('❌ Database update failed or no rows modified');
+                                  // Revert on error
+                                  setState(() {
+                                    final idx = items.indexWhere(
+                                      (e) => e.id == it.id,
+                                    );
+                                    items[idx] = it;
+                                  });
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('تعذر حفظ التغيير')), 
+                                  );
+                                } else {
+                                  print('✅ Database update completed');
+                                  await _loadCategory();
+                                }
                               },
                             ),
-                            IconButton(onPressed: () => _editItem(it), icon: const Icon(Icons.edit)),
+                            IconButton(
+                              onPressed: () => _editItem(it),
+                              icon: const Icon(Icons.edit),
+                            ),
                             IconButton(
                               onPressed: () async {
                                 final ok = await showDialog<bool>(
@@ -334,10 +442,20 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                                     return AlertDialog(
                                       backgroundColor: cs2.surface,
                                       title: const Text('حذف الصنف'),
-                                      content: const Text('هل تريد حذف هذا الصنف بشكل نهائي؟'),
+                                      content: const Text(
+                                        'هل تريد حذف هذا الصنف بشكل نهائي؟',
+                                      ),
                                       actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-                                        ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف')),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('إلغاء'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text('حذف'),
+                                        ),
                                       ],
                                     );
                                   },

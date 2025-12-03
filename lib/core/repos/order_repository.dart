@@ -23,6 +23,8 @@ class OrderRepository {
     required String address,
     required String orderType,
     required List<OrderItem> items,
+    double? customerLat,
+    double? customerLong,
   }) async {
     final primary = _c ?? _svc;
     if (primary == null) {
@@ -83,10 +85,14 @@ class OrderRepository {
             'created_at': now,
             'order_type': finalOrderType,
           };
-          await primary.from(ordersTable).insert(dataWithType);
-          print('✅ Order inserted with order_type');
+          if (customerLat != null) dataWithType['customer_lat'] = customerLat;
+                            if (customerLong != null) dataWithType['customer_long'] = customerLong;
+                            await primary.from(ordersTable).insert(dataWithType);
+                            print('✅ Order inserted with order_type');
+                            print('📍 Coordinates: lat=$customerLat, long=$customerLong');
         } catch (e) {
-          if (e.toString().contains('order_type')) {
+          final err = e.toString();
+          if (err.contains('order_type')) {
             print('⚠️ order_type missing, storing type in address');
             finalAddress = '[$finalOrderType] $address';
             final dataNoType = {
@@ -98,10 +104,31 @@ class OrderRepository {
               'total_price': totalPrice,
               'created_at': now,
             };
+            if (customerLat != null) dataNoType['customer_lat'] = customerLat;
+            if (customerLong != null) dataNoType['customer_long'] = customerLong;
             await primary.from(ordersTable).insert(dataNoType);
             print('✅ Order inserted without order_type; type embedded in address');
           } else {
-            rethrow;
+            // Retry without lat/long if columns are missing
+            if (err.contains('customer_lat') || err.contains('customer_long')) {
+              print('⚠️ customer_lat/long missing, retrying without coordinates');
+              if (customerLat != null && customerLong != null) {
+                finalAddress = 'GPS($customerLat,$customerLong) $finalAddress';
+              }
+              final fallback = {
+                'id': orderId,
+                'customer_name': customerName,
+                'phone': phone,
+                'address': finalAddress,
+                'status': 'pending',
+                'total_price': totalPrice,
+                'created_at': now,
+                'order_type': finalOrderType,
+              };
+              await primary.from(ordersTable).insert(fallback);
+            } else {
+              rethrow;
+            }
           }
         }
         usedClient = primary;
@@ -111,7 +138,7 @@ class OrderRepository {
         if (svc != null && svc != primary) {
           print('🔄 Retrying with service client...');
           try {
-            await svc.from(ordersTable).insert({
+            final svcData = {
               'id': orderId,
               'customer_name': customerName,
               'phone': phone,
@@ -120,14 +147,18 @@ class OrderRepository {
               'status': 'pending',
               'total_price': totalPrice,
               'created_at': now,
-            });
+            };
+            if (customerLat != null) svcData['customer_lat'] = customerLat;
+            if (customerLong != null) svcData['customer_long'] = customerLong;
+            await svc.from(ordersTable).insert(svcData);
             usedClient = svc;
             print('✅ Order inserted with service client');
           } catch (svcError) {
-            if (svcError.toString().contains('order_type')) {
+            final sErr = svcError.toString();
+            if (sErr.contains('order_type')) {
               print('⚠️ order_type missing on service client; embedding type in address');
               final embedAddr = '[$finalOrderType] $address';
-              await svc.from(ordersTable).insert({
+              final svcDataNoType = {
                 'id': orderId,
                 'customer_name': customerName,
                 'phone': phone,
@@ -135,11 +166,33 @@ class OrderRepository {
                 'status': 'pending',
                 'total_price': totalPrice,
                 'created_at': now,
-              });
+              };
+              if (customerLat != null && customerLong != null) {
+                svcDataNoType['address'] = 'GPS($customerLat,$customerLong) $embedAddr';
+              }
+              await svc.from(ordersTable).insert(svcDataNoType);
               usedClient = svc;
               print('✅ Order inserted with service client without order_type');
             } else {
-              rethrow;
+              if (sErr.contains('customer_lat') || sErr.contains('customer_long')) {
+                print('⚠️ customer_lat/long missing on service client; retrying without coordinates');
+                final fallbackSvc = {
+                  'id': orderId,
+                  'customer_name': customerName,
+                  'phone': phone,
+                  'address': (customerLat != null && customerLong != null)
+                      ? 'GPS($customerLat,$customerLong) $finalAddress'
+                      : finalAddress,
+                  'status': 'pending',
+                  'total_price': totalPrice,
+                  'created_at': now,
+                  'order_type': finalOrderType,
+                };
+                await svc.from(ordersTable).insert(fallbackSvc);
+                usedClient = svc;
+              } else {
+                rethrow;
+              }
             }
           }
         } else {
@@ -303,6 +356,12 @@ class OrderRepository {
     final list = (res as List)
         .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
         .toList();
+    
+    // Debug: عرض البيانات الخام من قاعدة البيانات
+    print('📊 تم جلب ${list.length} طلب من قاعدة البيانات');
+    for (final order in list) {
+      print('طلب: id=${order['id']}, type=${order['order_type']}, lat=${order['customer_lat']}, long=${order['customer_long']}');
+    }
     return list.map((o) {
       final items =
           (o['order_items'] as List?)?.map((it) {
@@ -322,6 +381,16 @@ class OrderRepository {
           }).toList() ??
           [];
       final type = o['order_type']?.toString() ?? _extractType(o['address']?.toString());
+      double? lat = (o['customer_lat'] as num?)?.toDouble();
+      double? long = (o['customer_long'] as num?)?.toDouble();
+      if (lat == null || long == null) {
+        final addr = o['address']?.toString() ?? '';
+        final m = RegExp(r"GPS\(([-\d\.]+),([-\d\.]+)\)").firstMatch(addr);
+        if (m != null) {
+          lat = double.tryParse(m.group(1)!);
+          long = double.tryParse(m.group(2)!);
+        }
+      }
       return Order(
         id: o['id']?.toString() ?? '',
         customerName: o['customer_name'] ?? '',
@@ -334,6 +403,8 @@ class OrderRepository {
             ? OrderStatus.completed
             : OrderStatus.pending,
         items: items,
+        customerLat: lat,
+        customerLong: long,
       );
     }).toList();
   }
