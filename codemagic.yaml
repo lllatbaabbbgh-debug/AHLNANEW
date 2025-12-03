@@ -21,21 +21,26 @@ workflows:
           echo "== Triggering dual iOS build at $(date) =="
 
           echo "== Factory Reset =="
+          rm -f ios/Podfile.lock || true
           rm -rf ios
           rm -rf build
-          rm -f ios/Podfile.lock || true
           flutter clean
-          flutter pub get
 
           echo "== Regenerate iOS folder =="
           flutter create . --platforms ios
+
+          echo "== Dependencies =="
+          flutter pub get
 
           PLIST="ios/Runner/Info.plist"
           echo "== Ensure iOS permissions (Info.plist) =="
           /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string موقعك مطلوب لتوصيل الطلب" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription موقعك مطلوب لتوصيل الطلب" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string نحتاج الوصول للصور لاختيار وحفظ الصور" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription نحتاج الوصول للصور لاختيار وحفظ الصور" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" | grep -q "comgooglemaps" || /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes string comgooglemaps" "$PLIST"
+          if ! /usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" | grep -q "comgooglemaps"; then
+            COUNT=$(/usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" 2>/dev/null | grep -E "^[[:space:]]*[0-9]+ =" | wc -l | tr -d ' ')
+            /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:$COUNT string comgooglemaps" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:0 string comgooglemaps" "$PLIST"
+          fi
 
           echo "== Install CocoaPods =="
           cd ios
