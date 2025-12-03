@@ -165,6 +165,12 @@ workflows:
             done
           fi
 
+          echo "== Bundle IPAs into a single zip for easy download =="
+          pushd build/ios/ipa >/dev/null || true
+          rm -f Dual-IPAs.zip || true
+          zip -r Dual-IPAs.zip ./*.ipa || true
+          popd >/dev/null || true
+
           ls -lah build/ios/ipa || true
     artifacts:
       - build/ios/ipa/Customer.ipa
@@ -172,6 +178,7 @@ workflows:
       - build/ios/ipa/*.ipa
       - build/**/ipa/*.ipa
       - build/**/**/*.ipa
+      - build/ios/ipa/Dual-IPAs.zip
     publishing:
       email:
         recipients:
