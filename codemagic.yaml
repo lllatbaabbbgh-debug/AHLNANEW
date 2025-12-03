@@ -171,6 +171,11 @@ workflows:
           zip -r Dual-IPAs.zip ./*.ipa || true
           popd >/dev/null || true
 
+          echo "== Export artifacts to CM_EXPORT_DIR =="
+          mkdir -p "$CM_EXPORT_DIR" || true
+          cp -f build/ios/ipa/*.ipa "$CM_EXPORT_DIR"/ 2>/dev/null || true
+          cp -f build/ios/ipa/Dual-IPAs.zip "$CM_EXPORT_DIR"/ 2>/dev/null || true
+
           ls -lah build/ios/ipa || true
     artifacts:
       - build/ios/ipa/Customer_App.ipa
@@ -179,6 +184,8 @@ workflows:
       - build/**/ipa/*.ipa
       - build/**/**/*.ipa
       - build/ios/ipa/Dual-IPAs.zip
+      - $CM_EXPORT_DIR/*.ipa
+      - $CM_EXPORT_DIR/*.zip
     publishing:
       email:
         recipients:
