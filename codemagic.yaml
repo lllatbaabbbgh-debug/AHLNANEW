@@ -133,7 +133,7 @@ workflows:
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
           mkdir -p build/ios/ipa
           if [ -f build/ios/ipa/Runner.ipa ]; then
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer.ipa
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
           fi
 
           echo "== Build Admin IPA (rename display name) =="
@@ -144,14 +144,14 @@ workflows:
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
           if [ -f build/ios/ipa/Runner.ipa ]; then
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin.ipa
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
           fi
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $ORIG_NAME" "$PLIST" 2>/dev/null || true
 
           echo "== Fallback packaging (if Runner.ipa not found) =="
-          if [ ! -f build/ios/ipa/Customer.ipa ] || [ ! -f build/ios/ipa/Admin.ipa ]; then
+          if [ ! -f build/ios/ipa/Customer_App.ipa ] || [ ! -f build/ios/ipa/Admin_App.ipa ]; then
             echo "Packaging fallback..."
-            for APP in Customer Admin; do
+            for APP in Customer_App Admin_App; do
               if [ ! -f build/ios/ipa/${APP}.ipa ]; then
                 if [ -d build/ios/iphoneos/Runner.app ]; then
                   pushd build/ios/iphoneos >/dev/null
@@ -173,8 +173,8 @@ workflows:
 
           ls -lah build/ios/ipa || true
     artifacts:
-      - build/ios/ipa/Customer.ipa
-      - build/ios/ipa/Admin.ipa
+      - build/ios/ipa/Customer_App.ipa
+      - build/ios/ipa/Admin_App.ipa
       - build/ios/ipa/*.ipa
       - build/**/ipa/*.ipa
       - build/**/**/*.ipa
