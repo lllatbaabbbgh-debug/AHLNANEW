@@ -108,6 +108,17 @@ workflows:
           DART
           dart update_plist.dart
 
+          echo "== Force disable code signing in Xcode project =="
+          PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+          if [ -f "$PBXPROJ" ]; then
+            # macOS sed (BSD) requires empty string for -i backup suffix
+            sed -E -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' "$PBXPROJ"
+            sed -E -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' "$PBXPROJ"
+            sed -E -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' "$PBXPROJ"
+          else
+            echo "Warning: project.pbxproj not found to patch signing settings"
+          fi
+
           echo "== Install CocoaPods =="
           cd ios
           pod install --repo-update
@@ -116,6 +127,7 @@ workflows:
           echo "== Build Customer IPA =="
           ORIG_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$PLIST" 2>/dev/null || echo "Ahlna Daquq")
           flutter build ipa --no-codesign --release \
+            --xcargs "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=''" \
             --target lib/main.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
@@ -128,6 +140,7 @@ workflows:
           echo "== Build Admin IPA (rename display name) =="
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ahlna Admin" "$PLIST" 2>/dev/null || true
           flutter build ipa --no-codesign --release \
+            --xcargs "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=''" \
             --target lib/admin/main_admin.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
