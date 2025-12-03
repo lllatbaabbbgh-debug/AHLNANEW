@@ -152,13 +152,13 @@ workflows:
           pod install --repo-update
           cd ..
 
-          echo "== Build Customer IPA =="
+          echo "== Build Admin iOS (prepare) =="
           ORIG_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$PLIST" 2>/dev/null || echo "Ahlna Daquq")
-          flutter build ipa --no-codesign --release \
-            --target lib/main.dart \
+          flutter build ios --no-codesign --release \
+            --target lib/admin/main_admin.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
-            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ipa failed, will try manual packaging"
+            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ios failed, continuing"
           
           echo "== Xcode Archive and Export (Runner) =="
           cd ios
@@ -175,38 +175,15 @@ workflows:
           echo "== Check for built IPA files =="
           find build -name "*.ipa" -type f
           
-          echo "== Handle IPAs from different sources =="
-          # Handle IPAs created by xcodebuild (usually named after the scheme)
-          if [ -f ios/build/ios/ipa/Runner.ipa ]; then
-            echo "Found Runner.ipa from xcodebuild export, copying to Customer_App.ipa"
-            cp -f ios/build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
-          fi
-          
-          # Handle IPAs created by flutter build ipa
-          if [ -f build/ios/ipa/Runner.ipa ]; then
-            echo "Found Runner.ipa from flutter build, copying to Customer_App.ipa"
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
-          fi
-          
-          if [ -f build/ios/ipa/Runner.ipa ]; then
-            echo "Found Runner.ipa, copying to Customer_App.ipa"
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
-          elif [ -d build/ios/iphoneos/Runner.app ]; then
-            echo "Creating Customer_App.ipa from Runner.app"
+          echo "== Ensure Admin IPA exists =="
+          if [ ! -f build/ios/ipa/Runner.ipa ] && [ -d build/ios/iphoneos/Runner.app ]; then
+            echo "Creating Runner.ipa from Runner.app (manual packaging)"
             pushd build/ios/iphoneos >/dev/null
             rm -rf Payload && mkdir -p Payload
             cp -R Runner.app Payload/
-            zip -r Customer_App.ipa Payload
-            mv Customer_App.ipa ../ipa/Customer_App.ipa
+            zip -r Runner.ipa Payload
+            mv Runner.ipa ../ipa/Runner.ipa
             popd >/dev/null
-          else
-            echo "Warning: No IPA or app found for Customer"
-          fi
-
-          # Ensure runner.ipa exists for Artifacts if only Customer_App.ipa was created
-          if [ ! -f build/ios/ipa/Runner.ipa ] && [ -f build/ios/ipa/Customer_App.ipa ]; then
-            echo "Creating runner.ipa alias from Customer_App.ipa for Artifacts"
-            cp -f build/ios/ipa/Customer_App.ipa build/ios/ipa/Runner.ipa
           fi
 
           echo "== Build Admin IPA (rename display name) =="
