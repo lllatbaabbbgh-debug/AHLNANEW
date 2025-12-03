@@ -121,6 +121,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
+  Future<void> _callCustomer(String phone) async {
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        await launchUrl(uri);
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح الاتصال')),
+        );
+      }
+    }
+  }
+
   Future<void> _track(Order o) async {
     final lat = o.customerLat;
     final long = o.customerLong;
@@ -348,7 +365,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
 
     if (widget.compactMobile) {
-      return Container(
+      return InkWell(
+        onTap: () => _showDetails(o),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
         height: 150,
         decoration: BoxDecoration(
           color: Colors.white,
@@ -388,11 +408,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       ),
                     ),
                   ),
-                  Text(
-                    '#${o.id.substring(0, 6)}',
-                    style: TextStyle(
-                      color: typeColor,
-                      fontWeight: FontWeight.w700,
+                  InkWell(
+                    onTap: () => _callCustomer(o.phone),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Text(
+                        '#${o.id.substring(0, 6)}',
+                        style: TextStyle(
+                          color: typeColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -833,12 +860,24 @@ class _OrderDetailsScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.phone, size: 20, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Text(order.phone),
-                    ],
+                  InkWell(
+                    onTap: () async {
+                      final uri = Uri.parse('tel:${order.phone}');
+                      if (await canLaunchUrl(uri)) {
+                        try {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        } catch (_) {
+                          await launchUrl(uri);
+                        }
+                      }
+                    },
+                    child: Row(
+                      children: [
+                        Icon(Icons.phone, size: 20, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(order.phone),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
