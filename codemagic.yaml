@@ -10,6 +10,8 @@ workflows:
       vars:
         FLUTTER_VERSION: "3.24.5"
         CM_NETWORK_TIMEOUT: 600
+    export_options:
+      method: development
     triggering:
       events:
         - push
@@ -131,6 +133,32 @@ workflows:
             echo "Warning: project.pbxproj not found to patch signing settings"
           fi
 
+          echo "== Create export_options.plist =="
+          cat > export_options.plist <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>teamID</key>
+    <string></string>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <false/>
+    <key>compileBitcode</key>
+    <false/>
+    <key>stripSwiftSymbols</key>
+    <false/>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+</dict>
+</plist>
+PLIST
+
           echo "== Install CocoaPods =="
           cd ios
           pod install --repo-update
@@ -143,6 +171,12 @@ workflows:
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ipa failed, will try manual packaging"
+          
+          echo "== Xcode Archive and Export for Customer =="
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          cd ..
           
           echo "== Create IPA output directory =="
           mkdir -p build/ios/ipa
@@ -172,6 +206,12 @@ workflows:
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+          
+          echo "== Xcode Archive and Export for Admin =="
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner-Admin.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          xcodebuild -exportArchive -archivePath build/Runner-Admin.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          cd ..
           
           echo "== Check for Admin IPA files =="
           find build -name "*.ipa" -type f
@@ -226,6 +266,27 @@ workflows:
           cp -f build/ios/ipa/Dual-IPAs.zip "$CM_BUILD_OUTPUT_DIR"/ 2>/dev/null || true
 
           echo "== List artifact directories =="
+          echo "== Force create IPA files if not exists =="
+          if [ ! -f build/ios/ipa/Customer_App.ipa ] && [ -d build/ios/iphoneos/Runner.app ]; then
+            echo "Force creating Customer_App.ipa"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner.app Payload/
+            zip -r Customer_App.ipa Payload
+            mv Customer_App.ipa ../ipa/Customer_App.ipa
+            popd >/dev/null
+          fi
+          
+          if [ ! -f build/ios/ipa/Admin_App.ipa ] && [ -d build/ios/iphoneos/Runner.app ]; then
+            echo "Force creating Admin_App.ipa"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner.app Payload/
+            zip -r Admin_App.ipa Payload
+            mv Admin_App.ipa ../ipa/Admin_App.ipa
+            popd >/dev/null
+          fi
+          
           echo "== Final verification and artifact preparation =="
           echo "Contents of build/ios/ipa:"
           ls -la build/ios/ipa/ || echo "Directory not found"
