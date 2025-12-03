@@ -10,8 +10,6 @@ workflows:
       vars:
         FLUTTER_VERSION: "3.24.5"
         CM_NETWORK_TIMEOUT: 600
-    export_options:
-      method: development
     triggering:
       events:
         - push
