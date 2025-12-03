@@ -43,7 +43,22 @@
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+  <key>UIApplicationSupportsIndirectInputEvents</key>
+  <true/>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>موقعك مطلوب لتوصيل الطلب</string>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>موقعك مطلوب لتوصيل الطلب حتى عند إغلاق التطبيق</string>
+  <key>NSCameraUsageDescription</key>
+  <string>نحتاج الكاميرا لالتقاط الصور داخل التطبيق</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>نحتاج الوصول للصور لاختيار وحفظ الصور</string>
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>comgooglemaps</string>
+    <string>maps</string>
+    <string>tel</string>
+    <string>mailto</string>
+  </array>
 </dict>
 </plist>
