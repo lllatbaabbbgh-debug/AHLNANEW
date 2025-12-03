@@ -1,0 +1,23 @@
+platform :ios, '12.0'
+
+install! 'cocoapods', :disable_input_output_paths => true
+
+flutter_root = File.expand_path(File.join('..', 'Flutter'))
+require File.expand_path(File.join(flutter_root, 'podhelper.rb'), __FILE__)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks! :linkage => :static
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+post_install do |installer|
+  flutter_post_install(installer)
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+    end
+  end
+end
+

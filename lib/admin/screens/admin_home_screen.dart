@@ -349,7 +349,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
     if (widget.compactMobile) {
       return Container(
-        height: isIOS ? 140 : 170,
+        height: 150,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -718,73 +718,69 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
                 // الأزرار التفاعلية
                 if (!isIOS)
-                  (
-                    !isCooking
-                        ? Row(
-                            children: [
-                              Expanded(
-                                child: TextButton(
-                                  onPressed: widget.restrictActions
-                                      ? null
-                                      : () => _cancel(index),
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: Colors.red.shade50,
-                                    foregroundColor: Colors.red,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
+                  !isCooking
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: widget.restrictActions
+                                    ? null
+                                    : () => _cancel(index),
+                                style: TextButton.styleFrom(
+                                  backgroundColor: Colors.red.shade50,
+                                  foregroundColor: Colors.red,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Text("رفض"),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: widget.restrictActions
-                                      ? null
-                                      : () => _approve(index),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: primaryColor,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
                                   ),
-                                  child: const Text("قبول وبدء"),
                                 ),
+                                child: const Text("رفض"),
                               ),
-                            ],
-                          )
-                        : SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: widget.restrictActions
-                                  ? null
-                                  : () => _complete(index),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueAccent,
-                                foregroundColor: Colors.white,
-                                elevation: 4,
-                                shadowColor: Colors.blueAccent.withOpacity(0.4),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                              ),
-                              icon: const Icon(Icons.check_circle_outline),
-                              label: const Text("إكمال الطلب"),
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: widget.restrictActions
+                                    ? null
+                                    : () => _approve(index),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryColor,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text("قبول وبدء"),
+                              ),
+                            ),
+                          ],
+                        )
+                      : SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: widget.restrictActions
+                                ? null
+                                : () => _complete(index),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              shadowColor: Colors.blueAccent.withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text("إكمال الطلب"),
                           ),
-                  ),
+                        ),
               ],
             ),
           ),

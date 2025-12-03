@@ -42,6 +42,11 @@ workflows:
           echo "== Regenerate iOS folder =="
           flutter create . --platforms ios
 
+          echo "== Force iOS deployment target to 12.0 =="
+          if [ -f ios/Podfile ]; then
+            sed -E -i '' "s/platform :ios, '([0-9.]+)'/platform :ios, '12.0'/" ios/Podfile || true
+          fi
+
           echo "== Dependencies =="
           flutter pub get
 
@@ -163,9 +168,9 @@ workflows:
           echo "== Xcode Archive and Export (Runner) =="
           cd ios
           rm -rf build/Runner.xcarchive || true
-          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive || echo "Xcode archive failed"
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode archive failed"
           if [ -d build/Runner.xcarchive ]; then
-            xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ExportOptions.plist || echo "Xcode export failed"
+            xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ios/ExportOptions.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed"
           fi
           cd ..
           
@@ -202,7 +207,7 @@ workflows:
           xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner-Admin.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode archive failed, continuing with manual packaging"
           # Export the archive if it exists
           if [ -d build/Runner-Admin.xcarchive ]; then
-            xcodebuild -exportArchive -archivePath build/Runner-Admin.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          xcodebuild -exportArchive -archivePath build/Runner-Admin.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../ExportOptions.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
           fi
           cd ..
           
