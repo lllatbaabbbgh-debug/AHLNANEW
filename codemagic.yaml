@@ -169,6 +169,9 @@ workflows:
     artifacts:
       - build/ios/ipa/Customer.ipa
       - build/ios/ipa/Admin.ipa
+      - build/ios/ipa/*.ipa
+      - build/**/ipa/*.ipa
+      - build/**/**/*.ipa
     publishing:
       email:
         recipients:
