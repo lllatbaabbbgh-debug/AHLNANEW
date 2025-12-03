@@ -174,8 +174,14 @@ PLIST
           
           echo "== Xcode Archive and Export for Customer =="
           cd ios
-          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-          xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          # Clean any existing archives
+          rm -rf build/Runner.xcarchive || true
+          # Archive the build
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode archive failed, continuing with manual packaging"
+          # Export the archive if it exists
+          if [ -d build/Runner.xcarchive ]; then
+            xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          fi
           cd ..
           
           echo "== Create IPA output directory =="
@@ -183,6 +189,19 @@ PLIST
           
           echo "== Check for built IPA files =="
           find build -name "*.ipa" -type f
+          
+          echo "== Handle IPAs from different sources =="
+          # Handle IPAs created by xcodebuild (usually named after the scheme)
+          if [ -f ios/build/ios/ipa/Runner.ipa ]; then
+            echo "Found Runner.ipa from xcodebuild export, copying to Customer_App.ipa"
+            cp -f ios/build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
+          fi
+          
+          # Handle IPAs created by flutter build ipa
+          if [ -f build/ios/ipa/Runner.ipa ]; then
+            echo "Found Runner.ipa from flutter build, copying to Customer_App.ipa"
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
+          fi
           
           if [ -f build/ios/ipa/Runner.ipa ]; then
             echo "Found Runner.ipa, copying to Customer_App.ipa"
@@ -209,12 +228,31 @@ PLIST
           
           echo "== Xcode Archive and Export for Admin =="
           cd ios
-          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner-Admin.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-          xcodebuild -exportArchive -archivePath build/Runner-Admin.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          # Clean any existing archives
+          rm -rf build/Runner-Admin.xcarchive || true
+          # Archive the build
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner-Admin.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode archive failed, continuing with manual packaging"
+          # Export the archive if it exists
+          if [ -d build/Runner-Admin.xcarchive ]; then
+            xcodebuild -exportArchive -archivePath build/Runner-Admin.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+          fi
           cd ..
           
           echo "== Check for Admin IPA files =="
           find build -name "*.ipa" -type f
+          
+          echo "== Handle Admin IPAs from different sources =="
+          # Handle IPAs created by xcodebuild (usually named after the scheme)
+          if [ -f ios/build/ios/ipa/Runner.ipa ]; then
+            echo "Found Runner.ipa from xcodebuild export, copying to Admin_App.ipa"
+            cp -f ios/build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
+          fi
+          
+          # Handle IPAs created by flutter build ipa
+          if [ -f build/ios/ipa/Runner.ipa ]; then
+            echo "Found Runner.ipa from flutter build, copying to Admin_App.ipa"
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
+          fi
           
           if [ -f build/ios/ipa/Runner.ipa ]; then
             echo "Found Runner.ipa, copying to Admin_App.ipa"
@@ -287,9 +325,25 @@ PLIST
             popd >/dev/null
           fi
           
+          echo "== Ensure artifact directories exist =="
+          mkdir -p "$CM_BUILD_OUTPUT_DIR" || true
+          mkdir -p "$CM_EXPORT_DIR" || true
+          echo "CM_BUILD_OUTPUT_DIR: $CM_BUILD_OUTPUT_DIR"
+          echo "CM_EXPORT_DIR: $CM_EXPORT_DIR"
+          
           echo "== Final verification and artifact preparation =="
           echo "Contents of build/ios/ipa:"
           ls -la build/ios/ipa/ || echo "Directory not found"
+          
+          echo "== Verify IPA creation from multiple sources =="
+          echo "Checking for IPAs from flutter build:"
+          find build -name "*.ipa" -type f -exec ls -la {} \;
+          
+          echo "Checking for IPAs from xcodebuild export:"
+          find ios/build -name "*.ipa" -type f -exec ls -la {} \; 2>/dev/null || true
+          
+          echo "Checking for Runner.app:"
+          find build -name "Runner.app" -type d -exec ls -la {} \;
           
           echo "Creating artifacts directory and copying files:"
           mkdir -p "$CM_BUILD_OUTPUT_DIR"
@@ -322,8 +376,20 @@ PLIST
           ls -la "$CM_EXPORT_DIR" || echo "Directory empty"
           echo "Local build/ios/ipa contents:"
           ls -la build/ios/ipa/ || echo "Directory not found"
-          ls -lah "$CM_EXPORT_DIR" || true
-          ls -lah "$CM_BUILD_OUTPUT_DIR" || true
+          
+          echo "== Verify artifacts in CM directories =="
+          echo "Files in CM_BUILD_OUTPUT_DIR:"
+          find "$CM_BUILD_OUTPUT_DIR" -name "*.ipa" -o -name "*.zip" -exec ls -la {} \; 2>/dev/null || echo "No artifacts found"
+          echo "Files in CM_EXPORT_DIR:"
+          find "$CM_EXPORT_DIR" -name "*.ipa" -o -name "*.zip" -exec ls -la {} \; 2>/dev/null || echo "No artifacts found"
+          
+          echo "=== ARTIFACT SUMMARY ==="
+          echo "Customer_App.ipa locations:"
+          find . -name "Customer_App.ipa" -exec ls -la {} \; 2>/dev/null || echo "Not found"
+          echo "Admin_App.ipa locations:"
+          find . -name "Admin_App.ipa" -exec ls -la {} \; 2>/dev/null || echo "Not found"
+          echo "Dual-IPAs.zip locations:"
+          find . -name "Dual-IPAs.zip" -exec ls -la {} \; 2>/dev/null || echo "Not found"
     artifacts:
       - build/ios/ipa/Customer_App.ipa
       - build/ios/ipa/Admin_App.ipa
