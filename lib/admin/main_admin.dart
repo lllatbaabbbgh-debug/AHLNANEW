@@ -99,6 +99,14 @@ class _AdminRootState extends State<AdminRoot> {
       'العروضات',
     ];
 
+    if (Platform.isIOS) {
+      return Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: const AdminHomeScreen(restrictActions: true, compactMobile: true),
+        ),
+      );
+    }
     return Scaffold(
       body: Row(
         children: [
@@ -209,7 +217,6 @@ class _AdminRootState extends State<AdminRoot> {
             ),
           ),
 
-          // محتوى الصفحة
           Expanded(
             child: Scaffold(
               backgroundColor: theme.scaffoldBackgroundColor,
