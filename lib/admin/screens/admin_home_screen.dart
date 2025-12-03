@@ -298,7 +298,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       );
     }
 
-    // تصميم الشبكة المتجاوب (Responsive Grid)
     return Scaffold(
       backgroundColor: bgGrey,
       body: Padding(

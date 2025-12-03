@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import '../core/supabase_client.dart';
 import 'screens/admin_home_screen.dart';
@@ -83,8 +84,9 @@ class _AdminRootState extends State<AdminRoot> {
     final theme = Theme.of(context);
     final primaryGreen = theme.primaryColor;
 
+    final isIOS = Platform.isIOS;
     final screens = [
-      const AdminHomeScreen(),
+      const AdminHomeScreen(compactMobile: true),
       const AdminMenuScreen(),
       const AdminRecordsScreen(),
       const AdminOffersScreen(),
@@ -255,7 +257,10 @@ class _AdminRootState extends State<AdminRoot> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => setState(() => _index = index),
+        onTap: () {
+          if (Platform.isIOS && index != 0) return;
+          setState(() => _index = index);
+        },
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -275,14 +280,18 @@ class _AdminRootState extends State<AdminRoot> {
             children: [
               Icon(
                 icon,
-                color: isSelected ? primaryGreen : Colors.grey[600],
+                color: (Platform.isIOS && index != 0)
+                    ? Colors.grey[400]
+                    : (isSelected ? primaryGreen : Colors.grey[600]),
                 size: 22,
               ),
               const SizedBox(width: 14),
               Text(
                 title,
                 style: TextStyle(
-                  color: isSelected ? primaryGreen : Colors.grey[700],
+                  color: (Platform.isIOS && index != 0)
+                      ? Colors.grey[400]
+                      : (isSelected ? primaryGreen : Colors.grey[700]),
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 15,
                 ),
