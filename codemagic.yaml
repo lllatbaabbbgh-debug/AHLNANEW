@@ -134,29 +134,29 @@ workflows:
           fi
 
           echo "== Create export_options.plist =="
-          cat > export_options.plist << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>development</string>
-    <key>teamID</key>
-    <string></string>
-    <key>uploadBitcode</key>
-    <false/>
-    <key>uploadSymbols</key>
-    <false/>
-    <key>compileBitcode</key>
-    <false/>
-    <key>stripSwiftSymbols</key>
-    <false/>
-    <key>thinning</key>
-    <string>none</string>
-    <key>signingStyle</key>
-    <string>manual</string>
-</dict>
-</plist>
+          cat > export_options.plist <<'EOF'
+  <?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+      <key>method</key>
+      <string>development</string>
+      <key>teamID</key>
+      <string></string>
+      <key>uploadBitcode</key>
+      <false/>
+      <key>uploadSymbols</key>
+      <false/>
+      <key>compileBitcode</key>
+      <false/>
+      <key>stripSwiftSymbols</key>
+      <false/>
+      <key>thinning</key>
+      <string>none</string>
+      <key>signingStyle</key>
+      <string>manual</string>
+  </dict>
+  </plist>
 EOF
 
           echo "== Install CocoaPods =="
@@ -216,6 +216,12 @@ EOF
             popd >/dev/null
           else
             echo "Warning: No IPA or app found for Customer"
+          fi
+
+          # Ensure runner.ipa exists for Artifacts if only Customer_App.ipa was created
+          if [ ! -f build/ios/ipa/Runner.ipa ] && [ -f build/ios/ipa/Customer_App.ipa ]; then
+            echo "Creating runner.ipa alias from Customer_App.ipa for Artifacts"
+            cp -f build/ios/ipa/Customer_App.ipa build/ios/ipa/Runner.ipa
           fi
 
           echo "== Build Admin IPA (rename display name) =="
@@ -395,12 +401,15 @@ EOF
       - build/ios/ipa/Admin_App.ipa
       - build/ios/ipa/Dual-IPAs.zip
       - build/ios/ipa/*.ipa
+      - build/ios/ipa/Runner.ipa
       - $CM_BUILD_OUTPUT_DIR/Customer_App.ipa
       - $CM_BUILD_OUTPUT_DIR/Admin_App.ipa
       - $CM_BUILD_OUTPUT_DIR/Dual-IPAs.zip
+      - $CM_BUILD_OUTPUT_DIR/Runner.ipa
       - $CM_EXPORT_DIR/Customer_App.ipa
       - $CM_EXPORT_DIR/Admin_App.ipa
       - $CM_EXPORT_DIR/Dual-IPAs.zip
+      - $CM_EXPORT_DIR/Runner.ipa
     publishing:
       email:
         recipients:
