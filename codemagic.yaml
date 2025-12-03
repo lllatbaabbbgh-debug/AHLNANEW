@@ -1,12 +1,15 @@
 workflows:
   ios_unsigned_release:
     name: iOS Unsigned IPA (Release)
-    max_build_duration: 60
+    max_build_duration: 120
     environment:
       flutter: stable
       xcode: latest
       groups:
         - supabase
+      vars:
+        FLUTTER_VERSION: "3.24.5"
+        CM_NETWORK_TIMEOUT: 600
     triggering:
       events:
         - push
@@ -15,6 +18,15 @@ workflows:
           include: true
           source: true
     scripts:
+      - name: Pre-build setup (fix network issues)
+        script: |
+          echo "== Pre-build network optimization =="
+          # Increase timeout for downloads
+          export CURL_TIMEOUT=600
+          export CURL_CONNECT_TIMEOUT=30
+          # Use alternative Flutter download if needed
+          export FLUTTER_STORAGE_BASE_URL=https://storage.googleapis.com
+          
       - name: iOS Dual Unsigned Build (clean-recreate, unsigned)
         script: |
           set -euo pipefail
