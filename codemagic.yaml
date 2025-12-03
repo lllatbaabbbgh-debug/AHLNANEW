@@ -127,7 +127,6 @@ workflows:
           echo "== Build Customer IPA =="
           ORIG_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$PLIST" 2>/dev/null || echo "Ahlna Daquq")
           flutter build ipa --no-codesign --release \
-            --xcargs "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=''" \
             --target lib/main.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
@@ -140,7 +139,6 @@ workflows:
           echo "== Build Admin IPA (rename display name) =="
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ahlna Admin" "$PLIST" 2>/dev/null || true
           flutter build ipa --no-codesign --release \
-            --xcargs "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=''" \
             --target lib/admin/main_admin.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
