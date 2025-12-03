@@ -142,10 +142,27 @@ workflows:
             --target lib/main.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
-            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ipa failed, will try manual packaging"
+          
+          echo "== Create IPA output directory =="
           mkdir -p build/ios/ipa
+          
+          echo "== Check for built IPA files =="
+          find build -name "*.ipa" -type f
+          
           if [ -f build/ios/ipa/Runner.ipa ]; then
+            echo "Found Runner.ipa, copying to Customer_App.ipa"
             cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
+          elif [ -d build/ios/iphoneos/Runner.app ]; then
+            echo "Creating Customer_App.ipa from Runner.app"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner.app Payload/
+            zip -r Customer_App.ipa Payload
+            mv Customer_App.ipa ../ipa/Customer_App.ipa
+            popd >/dev/null
+          else
+            echo "Warning: No IPA or app found for Customer"
           fi
 
           echo "== Build Admin IPA (rename display name) =="
@@ -155,8 +172,23 @@ workflows:
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+          
+          echo "== Check for Admin IPA files =="
+          find build -name "*.ipa" -type f
+          
           if [ -f build/ios/ipa/Runner.ipa ]; then
+            echo "Found Runner.ipa, copying to Admin_App.ipa"
             cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
+          elif [ -f build/ios/iphoneos/Runner.app ]; then
+            echo "Creating Admin_App.ipa from Runner.app"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner.app Payload/
+            zip -r Admin_App.ipa Payload
+            mv Admin_App.ipa ../ipa/Admin_App.ipa
+            popd >/dev/null
+          else
+            echo "Warning: No IPA or app found for Admin"
           fi
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $ORIG_NAME" "$PLIST" 2>/dev/null || true
 
@@ -194,20 +226,54 @@ workflows:
           cp -f build/ios/ipa/Dual-IPAs.zip "$CM_BUILD_OUTPUT_DIR"/ 2>/dev/null || true
 
           echo "== List artifact directories =="
-          ls -lah build/ios/ipa || true
+          echo "== Final verification and artifact preparation =="
+          echo "Contents of build/ios/ipa:"
+          ls -la build/ios/ipa/ || echo "Directory not found"
+          
+          echo "Creating artifacts directory and copying files:"
+          mkdir -p "$CM_BUILD_OUTPUT_DIR"
+          mkdir -p "$CM_EXPORT_DIR"
+          
+          # Copy IPA files to artifact directories
+          if [ -f build/ios/ipa/Customer_App.ipa ]; then
+            cp -v build/ios/ipa/Customer_App.ipa "$CM_BUILD_OUTPUT_DIR/"
+            cp -v build/ios/ipa/Customer_App.ipa "$CM_EXPORT_DIR/"
+          fi
+          
+          if [ -f build/ios/ipa/Admin_App.ipa ]; then
+            cp -v build/ios/ipa/Admin_App.ipa "$CM_BUILD_OUTPUT_DIR/"
+            cp -v build/ios/ipa/Admin_App.ipa "$CM_EXPORT_DIR/"
+          fi
+          
+          # Create and copy zip file
+          if [ -f build/ios/ipa/Customer_App.ipa ] && [ -f build/ios/ipa/Admin_App.ipa ]; then
+            pushd build/ios/ipa >/dev/null
+            zip -r Dual-IPAs.zip Customer_App.ipa Admin_App.ipa
+            popd >/dev/null
+            cp -v build/ios/ipa/Dual-IPAs.zip "$CM_BUILD_OUTPUT_DIR/"
+            cp -v build/ios/ipa/Dual-IPAs.zip "$CM_EXPORT_DIR/"
+          fi
+          
+          echo "Final artifact locations:"
+          echo "CM_BUILD_OUTPUT_DIR contents:"
+          ls -la "$CM_BUILD_OUTPUT_DIR" || echo "Directory empty"
+          echo "CM_EXPORT_DIR contents:"
+          ls -la "$CM_EXPORT_DIR" || echo "Directory empty"
+          echo "Local build/ios/ipa contents:"
+          ls -la build/ios/ipa/ || echo "Directory not found"
           ls -lah "$CM_EXPORT_DIR" || true
           ls -lah "$CM_BUILD_OUTPUT_DIR" || true
     artifacts:
       - build/ios/ipa/Customer_App.ipa
       - build/ios/ipa/Admin_App.ipa
-      - build/ios/ipa/*.ipa
-      - build/**/ipa/*.ipa
-      - build/**/**/*.ipa
       - build/ios/ipa/Dual-IPAs.zip
-      - $CM_EXPORT_DIR/*.ipa
-      - $CM_EXPORT_DIR/*.zip
-      - $CM_BUILD_OUTPUT_DIR/*.ipa
-      - $CM_BUILD_OUTPUT_DIR/*.zip
+      - build/ios/ipa/*.ipa
+      - $CM_BUILD_OUTPUT_DIR/Customer_App.ipa
+      - $CM_BUILD_OUTPUT_DIR/Admin_App.ipa
+      - $CM_BUILD_OUTPUT_DIR/Dual-IPAs.zip
+      - $CM_EXPORT_DIR/Customer_App.ipa
+      - $CM_EXPORT_DIR/Admin_App.ipa
+      - $CM_EXPORT_DIR/Dual-IPAs.zip
     publishing:
       email:
         recipients:
