@@ -15,13 +15,14 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: iOS Dual Unsigned Build (factory-only, no checkout)
+      - name: iOS Dual Unsigned Build (clean-recreate, unsigned)
         script: |
           set -euo pipefail
           echo "== Triggering dual iOS build at $(date) =="
 
           echo "== Factory Reset =="
           rm -f ios/Podfile.lock || true
+          rm -f ios/Podfile || true
           rm -rf ios
           rm -rf build
           flutter clean
@@ -70,6 +71,23 @@ workflows:
             cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin.ipa
           fi
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $ORIG_NAME" "$PLIST" 2>/dev/null || true
+
+          echo "== Fallback packaging (if Runner.ipa not found) =="
+          if [ ! -f build/ios/ipa/Customer.ipa ] || [ ! -f build/ios/ipa/Admin.ipa ]; then
+            echo "Packaging fallback..."
+            for APP in Customer Admin; do
+              if [ ! -f build/ios/ipa/${APP}.ipa ]; then
+                if [ -d build/ios/iphoneos/Runner.app ]; then
+                  pushd build/ios/iphoneos >/dev/null
+                  rm -rf Payload && mkdir -p Payload
+                  cp -R Runner.app Payload/
+                  zip -r ${APP}.ipa Payload
+                  mv ${APP}.ipa ../ipa/${APP}.ipa
+                  popd >/dev/null
+                fi
+              fi
+            done
+          fi
 
           ls -lah build/ios/ipa || true
     artifacts:
