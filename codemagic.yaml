@@ -35,6 +35,11 @@ workflows:
           flutter create . --platforms ios
 
           echo "========================================"
+          echo "2.1 Restore custom iOS configs (Info.plist, Podfile)"
+          echo "========================================"
+          git checkout -- ios/Runner/Info.plist ios/Podfile || true
+
+          echo "========================================"
           echo "3. Config Generation (pub get)..."
           echo "========================================"
           flutter pub get
@@ -47,19 +52,44 @@ workflows:
           cd ..
 
           echo "========================================"
-          echo "5. Final Build (IPA, unsigned)..."
+          echo "5. Build Customer IPA (unsigned)"
           echo "========================================"
           flutter build ipa --no-codesign --release \
+            --target lib/main.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-      - name: "Fallback: package IPA if missing"
+          if [ -f build/ios/ipa/Runner.ipa ]; then
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer.ipa
+          fi
+
+          echo "========================================"
+          echo "6. Build Admin IPA (unsigned)"
+          echo "========================================"
+          flutter build ipa --no-codesign --release \
+            --target lib/admin/main_admin.dart \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
+            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+          if [ -f build/ios/ipa/Runner.ipa ]; then
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin.ipa
+          fi
+      - name: "Fallback: package IPA if missing (Customer/Admin)"
         script: |
           set -e
-          if ls build/ios/ipa/*.ipa 1> /dev/null 2>&1; then
-            echo "IPA exists"
-          else
-            echo "IPA missing, trying to package Runner.app"
+          package_app() {
+            local name="$1"
+            local app_path="$2"
+            mkdir -p build/ios/ipa/Payload
+            cp -R "$app_path" build/ios/ipa/Payload/Runner.app
+            cd build/ios/ipa
+            zip -r "$name" Payload
+            rm -rf Payload
+            cd - >/dev/null
+          }
+
+          if [ ! -f build/ios/ipa/Customer.ipa ]; then
+            echo "Customer.ipa missing, trying to package Runner.app"
             APP_PATH=""
             if [ -d build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app ]; then
               APP_PATH="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
@@ -68,15 +98,21 @@ workflows:
             else
               APP_PATH=$(find build -type d -name Runner.app | head -n 1)
             fi
-            if [ -z "$APP_PATH" ]; then
-              echo "Runner.app not found; skipping fallback"
-              exit 1
+            if [ -n "$APP_PATH" ]; then
+              package_app "Customer.ipa" "$APP_PATH"
+            else
+              echo "Runner.app not found; skipping customer fallback"
             fi
-            mkdir -p build/ios/ipa/Payload
-            cp -R "$APP_PATH" build/ios/ipa/Payload/Runner.app
-            cd build/ios/ipa
-            zip -r Runner.ipa Payload
-            rm -rf Payload
+          fi
+
+          if [ ! -f build/ios/ipa/Admin.ipa ]; then
+            echo "Admin.ipa missing, trying to package Runner.app"
+            APP_PATH_ADMIN=$(find build -type d -name Runner.app | head -n 1)
+            if [ -n "$APP_PATH_ADMIN" ]; then
+              package_app "Admin.ipa" "$APP_PATH_ADMIN"
+            else
+              echo "Runner.app not found; skipping admin fallback"
+            fi
           fi
       - name: Verify IPA artifact
         script: |

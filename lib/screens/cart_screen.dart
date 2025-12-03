@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:io' show Platform;
 import '../core/cart.dart';
 import '../core/storage.dart';
 import '../core/repos/order_repository.dart';
@@ -118,7 +120,15 @@ class CartScreen extends StatelessWidget {
                               ),
                             ),
                             IconButton(
-                              onPressed: () => cart.add(item.item),
+                              onPressed: () {
+                                if (!item.item.isAvailable) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('تم نفاذ الكمية')),
+                                  );
+                                  return;
+                                }
+                                cart.add(item.item);
+                              },
                               icon: const Icon(Icons.add_circle_outline),
                             ),
                             IconButton(
@@ -135,293 +145,464 @@ class CartScreen extends StatelessWidget {
                   },
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, -5),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
                     ),
-                  ],
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
                   ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'الإجمالي الكلي',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                        Text(
-                          '${cart.totalPrice % 1 == 0 ? cart.totalPrice.toInt() : cart.totalPrice} IQD',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: cs.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: cs.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'الإجمالي الكلي',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
-                          elevation: 5,
-                        ),
-                        onPressed: () async {
-                          final profile = ProfileProvider.of(context);
-                          if (profile.name.isEmpty ||
-                              profile.phone.isEmpty ||
-                              profile.address.isEmpty) {
-                            final local = await Storage.loadProfile();
-                            profile.set(
-                              name: local['name'],
-                              phone: local['phone'],
-                              address: local['address'],
-                            );
-                          }
-
-                          // ----------------------------------------------------
-                          //  🔥 بداية نافذة الاختيار الجديدة (Premium Design) 🔥
-                          // ----------------------------------------------------
-                          final type = await showDialog<String>(
-                            context: context,
-                            builder: (context) {
-                              final theme = Theme.of(context);
-                              String? selected;
-                              return StatefulBuilder(
-                                builder: (context, setState) {
-                                  return Dialog(
-                                    backgroundColor: Colors
-                                        .transparent, // شفاف لنرسم نحن الخلفية
-                                    insetPadding: const EdgeInsets.all(16),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: theme.scaffoldBackgroundColor,
-                                        borderRadius: BorderRadius.circular(28),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.2,
-                                            ),
-                                            blurRadius: 20,
-                                            offset: const Offset(0, 10),
-                                          ),
-                                        ],
-                                      ),
-                                      padding: const EdgeInsets.fromLTRB(
-                                        20,
-                                        24,
-                                        20,
-                                        20,
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'شلون تحب تستلم طلبك؟',
-                                            style: theme.textTheme.titleLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 24),
-
-                                          // خيار سفري
-                                          _buildPremiumCard(
-                                            context,
-                                            title: 'سفري (Takeaway)',
-                                            value: 'takeaway',
-                                            groupValue: selected,
-                                            icon: Icons.shopping_bag_rounded,
-                                            onChanged: (v) =>
-                                                setState(() => selected = v),
-                                          ),
-                                          const SizedBox(height: 12),
-
-                                          // خيار صالة
-                                          _buildPremiumCard(
-                                            context,
-                                            title: 'داخل المطعم (Dine-in)',
-                                            value: 'dinein',
-                                            groupValue: selected,
-                                            icon: Icons.table_bar_rounded,
-                                            onChanged: (v) =>
-                                                setState(() => selected = v),
-                                          ),
-                                          const SizedBox(height: 12),
-
-                                          // خيار دليفري
-                                          _buildPremiumCard(
-                                            context,
-                                            title: 'توصيل (Delivery)',
-                                            value: 'delivery',
-                                            groupValue: selected,
-                                            icon: Icons.delivery_dining_rounded,
-                                            onChanged: (v) =>
-                                                setState(() => selected = v),
-                                          ),
-                                          const SizedBox(height: 30),
-
-                                          // أزرار التحكم
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context),
-                                                  style: TextButton.styleFrom(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 16,
-                                                        ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            14,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    'إلغاء',
-                                                    style: TextStyle(
-                                                      color: Colors.grey[600],
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                flex: 2,
-                                                child: ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        selected != null
-                                                        ? theme.primaryColor
-                                                        : Colors.grey[300],
-                                                    foregroundColor:
-                                                        Colors.white,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 16,
-                                                        ),
-                                                    elevation: selected != null
-                                                        ? 8
-                                                        : 0,
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            14,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  onPressed: selected == null
-                                                      ? null
-                                                      : () => Navigator.pop(
-                                                          context,
-                                                          selected,
-                                                        ),
-                                                  child: const Text(
-                                                    'تأكيد الطلب',
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                          // ----------------------------------------------------
-                          // نهاية التصميم الجديد
-                          // ----------------------------------------------------
-
-                          if (type == null) return;
-                          final repo = OrderRepository();
-                          final items = cart.items
-                              .map(
-                                (ci) => OrderItem(
-                                  item: ci.item,
-                                  quantity: ci.quantity,
+                          Text(
+                            '${cart.totalPrice % 1 == 0 ? cart.totalPrice.toInt() : cart.totalPrice} IQD',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              )
-                              .toList();
-                          final name = profile.name.isNotEmpty
-                              ? profile.name
-                              : 'زبون';
-                          final phone = profile.phone.isNotEmpty
-                              ? profile.phone
-                              : '0770';
-                          final address = profile.address.isNotEmpty
-                              ? profile.address
-                              : 'بدون';
-                          String? orderId;
-                          try {
-                            orderId = await repo.createOrder(
-                              customerName: name,
-                              phone: phone,
-                              address: address,
-                              orderType: type,
-                              items: items,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 55,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: cs.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 5,
+                          ),
+                          onPressed: () async {
+                            final profile = ProfileProvider.of(context);
+                            if (profile.name.isEmpty ||
+                                profile.phone.isEmpty ||
+                                profile.address.isEmpty) {
+                              final local = await Storage.loadProfile();
+                              profile.set(
+                                name: local['name'],
+                                phone: local['phone'],
+                                address: local['address'],
+                              );
+                            }
+
+                            // ----------------------------------------------------
+                            //  🔥 بداية نافذة الاختيار الجديدة (Premium Design) 🔥
+                            // ----------------------------------------------------
+                            final type = await showDialog<String>(
+                              context: context,
+                              builder: (context) {
+                                final theme = Theme.of(context);
+                                String? selected;
+                                return StatefulBuilder(
+                                  builder: (context, setState) {
+                                    return Dialog(
+                                      backgroundColor: Colors
+                                          .transparent, // شفاف لنرسم نحن الخلفية
+                                      insetPadding: const EdgeInsets.all(16),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: theme.scaffoldBackgroundColor,
+                                          borderRadius: BorderRadius.circular(
+                                            28,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.2,
+                                              ),
+                                              blurRadius: 20,
+                                              offset: const Offset(0, 10),
+                                            ),
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.fromLTRB(
+                                          20,
+                                          24,
+                                          20,
+                                          20,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'شلون تحب تستلم طلبك؟',
+                                              style: theme.textTheme.titleLarge
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 24),
+
+                                            // خيار سفري
+                                            _buildPremiumCard(
+                                              context,
+                                              title: 'سفري (Takeaway)',
+                                              value: 'takeaway',
+                                              groupValue: selected,
+                                              icon: Icons.shopping_bag_rounded,
+                                              onChanged: (v) =>
+                                                  setState(() => selected = v),
+                                            ),
+                                            const SizedBox(height: 12),
+
+                                            // خيار صالة
+                                            _buildPremiumCard(
+                                              context,
+                                              title: 'داخل المطعم (Dine-in)',
+                                              value: 'dinein',
+                                              groupValue: selected,
+                                              icon: Icons.table_bar_rounded,
+                                              onChanged: (v) =>
+                                                  setState(() => selected = v),
+                                            ),
+                                            const SizedBox(height: 12),
+
+                                            // خيار دليفري
+                                            _buildPremiumCard(
+                                              context,
+                                              title: 'توصيل (Delivery)',
+                                              value: 'delivery',
+                                              groupValue: selected,
+                                              icon:
+                                                  Icons.delivery_dining_rounded,
+                                              onChanged: (v) =>
+                                                  setState(() => selected = v),
+                                            ),
+                                            const SizedBox(height: 30),
+
+                                            // أزرار التحكم
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context),
+                                                    style: TextButton.styleFrom(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 16,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              14,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      'إلغاء',
+                                                      style: TextStyle(
+                                                        color: Colors.grey[600],
+                                                        fontSize: 16,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: ElevatedButton(
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor:
+                                                          selected != null
+                                                          ? theme.primaryColor
+                                                          : Colors.grey[300],
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 16,
+                                                          ),
+                                                      elevation:
+                                                          selected != null
+                                                          ? 8
+                                                          : 0,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              14,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    onPressed: selected == null
+                                                        ? null
+                                                        : () => Navigator.pop(
+                                                            context,
+                                                            selected,
+                                                          ),
+                                                    child: const Text(
+                                                      'تأكيد الطلب',
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
                             );
-                          } catch (e) {
-                            orderId = null;
-                          }
-                          if (orderId == null) {
+                            // ----------------------------------------------------
+                            // نهاية التصميم الجديد
+                            // ----------------------------------------------------
+
+                            if (type == null) return;
+
+                            // إظهار رسالة للمستخدم حول نوع الطلب المختار
+                            _showToastNotification(
+                              context,
+                              'تم اختيار طلب ${type == 'delivery'
+                                  ? 'توصيل'
+                                  : type == 'takeaway'
+                                  ? 'سفري'
+                                  : 'داخل المطعم'}',
+                              isError: false,
+                            );
+
+                            final repo = OrderRepository();
+                            final items = cart.items
+                                .map(
+                                  (ci) => OrderItem(
+                                    item: ci.item,
+                                    quantity: ci.quantity,
+                                  ),
+                                )
+                                .toList();
+                            final name = profile.name.isNotEmpty
+                                ? profile.name
+                                : 'زبون';
+                            final phone = profile.phone.isNotEmpty
+                                ? profile.phone
+                                : '0770';
+                            final address = profile.address.isNotEmpty
+                                ? profile.address
+                                : 'بدون';
+                            String? orderId;
+                            try {
+                              double? lat;
+                              double? long;
+                              if (type == 'delivery') {
+                                _showToastNotification(
+                                  context,
+                                  'جاري الحصول على موقعك للتوصيل...',
+                                  isError: false,
+                                );
+
+                                var serviceEnabled =
+                                    await Geolocator.isLocationServiceEnabled();
+                                if (!serviceEnabled) {
+                                  final accept =
+                                      await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('تشغيل الموقع'),
+                                          content: const Text(
+                                            'يرجى تشغيل الـ GPS لإتمام طلب التوصيل. هل تريد فتح الإعدادات؟',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text('لا'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: const Text('نعم'),
+                                            ),
+                                          ],
+                                        ),
+                                      ) ??
+                                      false;
+                                  if (accept) {
+                                    await Geolocator.openLocationSettings();
+                                    serviceEnabled =
+                                        await Geolocator.isLocationServiceEnabled();
+                                    if (!serviceEnabled) {
+                                      _showToastNotification(
+                                        context,
+                                        'قم بتشغيل الموقع',
+                                        isError: true,
+                                      );
+                                      return;
+                                    }
+                                  } else {
+                                    _showToastNotification(
+                                      context,
+                                      'قم بتشغيل الموقع',
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
+                                }
+                                var permission =
+                                    await Geolocator.checkPermission();
+                                if (permission == LocationPermission.denied) {
+                                  permission =
+                                      await Geolocator.requestPermission();
+                                }
+                                if (permission ==
+                                    LocationPermission.deniedForever) {
+                                  final goSettings =
+                                      await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text(
+                                            'صلاحية الموقع مطلوبة',
+                                          ),
+                                          content: const Text(
+                                            'يجب منح صلاحية الوصول للموقع. هل تريد فتح إعدادات التطبيق؟',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text('لا'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: const Text(
+                                                'فتح الإعدادات',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ) ??
+                                      false;
+                                  if (goSettings) {
+                                    await Geolocator.openAppSettings();
+                                  }
+                                  _showToastNotification(
+                                    context,
+                                    'قم بتفعيل صلاحية الموقع',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
+                                if (permission == LocationPermission.denied) {
+                                  _showToastNotification(
+                                    context,
+                                    'صلاحية الموقع مطلوبة لطلب التوصيل',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
+                                Position pos;
+                                if (Platform.isAndroid) {
+                                  try {
+                                    pos =
+                                        await Geolocator.getPositionStream(
+                                          locationSettings: AndroidSettings(
+                                            accuracy: LocationAccuracy
+                                                .bestForNavigation,
+                                            forceLocationManager: true,
+                                            distanceFilter: 0,
+                                            intervalDuration: Duration(
+                                              seconds: 1,
+                                            ),
+                                          ),
+                                        ).first.timeout(
+                                          const Duration(seconds: 10),
+                                        );
+                                  } catch (_) {
+                                    pos = await Geolocator.getCurrentPosition(
+                                      desiredAccuracy:
+                                          LocationAccuracy.bestForNavigation,
+                                      timeLimit: const Duration(seconds: 10),
+                                    );
+                                  }
+                                } else {
+                                  pos = await Geolocator.getCurrentPosition(
+                                    desiredAccuracy:
+                                        LocationAccuracy.bestForNavigation,
+                                    timeLimit: const Duration(seconds: 10),
+                                  );
+                                }
+                                lat = pos.latitude;
+                                long = pos.longitude;
+
+                                _showToastNotification(
+                                  context,
+                                  'تم الحصول على الموقع بنجاح: ${lat.toStringAsFixed(4)}, ${long.toStringAsFixed(4)}',
+                                  isError: false,
+                                );
+                              }
+                              orderId = await repo.createOrder(
+                                customerName: name,
+                                phone: phone,
+                                address: address,
+                                orderType: type,
+                                items: items,
+                                customerLat: lat,
+                                customerLong: long,
+                              );
+                            } catch (e) {
+                              orderId = null;
+                            }
+                            if (orderId == null) {
+                              if (!context.mounted) return;
+                              _showToastNotification(
+                                context,
+                                'تعذر إرسال الطلب',
+                                isError: true,
+                              );
+                              return;
+                            }
+                            cart.clear();
                             if (!context.mounted) return;
                             _showToastNotification(
                               context,
-                              'تعذر إرسال الطلب',
-                              isError: true,
+                              'تم إرسال الطلب',
+                              isError: false,
                             );
-                            return;
-                          }
-                          cart.clear();
-                          if (!context.mounted) return;
-                          _showToastNotification(
-                            context,
-                            'تم إرسال الطلب',
-                            isError: false,
-                          );
-                          await Future.delayed(const Duration(seconds: 2));
-                          if (!context.mounted) return;
-                          Navigator.pop(context);
-                        },
-                        child: const Text(
-                          'إتمام الطلب',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            await Future.delayed(const Duration(seconds: 2));
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            'إتمام الطلب',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
