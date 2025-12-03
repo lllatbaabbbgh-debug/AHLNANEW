@@ -131,9 +131,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تعذر فتح الاتصال')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تعذر فتح الاتصال')));
       }
     }
   }
@@ -369,158 +369,167 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         onTap: () => _showDetails(o),
         borderRadius: BorderRadius.circular(14),
         child: Container(
-        height: 150,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: isCooking ? Border.all(color: primaryColor, width: 2) : null,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: typeColor,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      _typeLabel(o.orderType),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => _callCustomer(o.phone),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      child: Text(
-                        '#${o.id.substring(0, 6)}',
-                        style: TextStyle(
-                          color: typeColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+          height: 150,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      o.customerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => _showDetails(o),
-                    icon: const Icon(Icons.info_outline, size: 18),
-                    color: Colors.grey,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'تفاصيل الزبون',
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${o.totalPrice % 1 == 0 ? o.totalPrice.toInt() : o.totalPrice} IQD',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontWeight: FontWeight.w900,
-                      fontSize: isIOS ? 15 : 16,
-                    ),
-                  ),
-                  if (o.customerLat != null && o.customerLong != null)
-                    ElevatedButton.icon(
-                      onPressed: () => _track(o),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        minimumSize: const Size(0, 36),
-                      ),
-                      icon: const Icon(Icons.location_on_rounded, size: 18),
-                      label: const Text('تتبع', style: TextStyle(fontSize: 13)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (!isIOS)
+            ],
+            border: isCooking
+                ? Border.all(color: primaryColor, width: 2)
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: widget.restrictActions
-                            ? null
-                            : () => _cancel(index),
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.red.shade50,
-                          foregroundColor: Colors.red,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        child: const Text(
-                          'رفض',
-                          style: TextStyle(fontSize: 13),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: typeColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _typeLabel(o.orderType),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: widget.restrictActions
-                            ? null
-                            : (isCooking
-                                  ? () => _complete(index)
-                                  : () => _approve(index)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isCooking
-                              ? Colors.blueAccent
-                              : primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                    InkWell(
+                      onTap: () => _callCustomer(o.phone),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
                         ),
                         child: Text(
-                          isCooking ? 'إكمال' : 'قبول',
-                          style: const TextStyle(fontSize: 13),
+                          '#${o.id.substring(0, 6)}',
+                          style: TextStyle(
+                            color: typeColor,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
-            ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        o.customerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _showDetails(o),
+                      icon: const Icon(Icons.info_outline, size: 18),
+                      color: Colors.grey,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'تفاصيل الزبون',
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${o.totalPrice % 1 == 0 ? o.totalPrice.toInt() : o.totalPrice} IQD',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: isIOS ? 15 : 16,
+                      ),
+                    ),
+                    if (o.customerLat != null && o.customerLong != null)
+                      ElevatedButton.icon(
+                        onPressed: () => _track(o),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 36),
+                        ),
+                        icon: const Icon(Icons.location_on_rounded, size: 18),
+                        label: const Text(
+                          'تتبع',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (!isIOS)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: widget.restrictActions
+                              ? null
+                              : () => _cancel(index),
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.red.shade50,
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          child: const Text(
+                            'رفض',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: widget.restrictActions
+                              ? null
+                              : (isCooking
+                                    ? () => _complete(index)
+                                    : () => _approve(index)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isCooking
+                                ? Colors.blueAccent
+                                : primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          child: Text(
+                            isCooking ? 'إكمال' : 'قبول',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       );
@@ -865,7 +874,10 @@ class _OrderDetailsScreen extends StatelessWidget {
                       final uri = Uri.parse('tel:${order.phone}');
                       if (await canLaunchUrl(uri)) {
                         try {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
                         } catch (_) {
                           await launchUrl(uri);
                         }
