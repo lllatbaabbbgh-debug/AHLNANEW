@@ -15,7 +15,7 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: iOS Dual Unsigned Build
+      - name: iOS Dual Unsigned Build (factory-only, no checkout)
         script: |
           set -euo pipefail
           echo "== Triggering dual iOS build at $(date) =="
@@ -30,22 +30,12 @@ workflows:
           echo "== Regenerate iOS folder =="
           flutter create . --platforms ios
 
-          echo "== Restore Info.plist & Podfile from repo if available =="
-          git checkout -- ios/Runner/Info.plist ios/Podfile || true
-
           PLIST="ios/Runner/Info.plist"
           echo "== Ensure iOS permissions (Info.plist) =="
           /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string موقعك مطلوب لتوصيل الطلب" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription موقعك مطلوب لتوصيل الطلب" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSLocationAlwaysAndWhenInUseUsageDescription string موقعك مطلوب لتوصيل الطلب حتى عند إغلاق التطبيق" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSLocationAlwaysAndWhenInUseUsageDescription موقعك مطلوب لتوصيل الطلب حتى عند إغلاق التطبيق" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string نحتاج الكاميرا لالتقاط الصور داخل التطبيق" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription نحتاج الكاميرا لالتقاط الصور داخل التطبيق" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string نحتاج الوصول للصور لاختيار وحفظ الصور" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription نحتاج الوصول للصور لاختيار وحفظ الصور" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$PLIST" 2>/dev/null || true
-          for s in comgooglemaps maps tel mailto; do
-            /usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" | grep -q "$s" || /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes string $s" "$PLIST"
-          done
-
-          echo "== Generate Xcode configs (fix Generated.xcconfig) =="
-          flutter build ios --config-only --no-codesign
+          /usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" | grep -q "comgooglemaps" || /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes string comgooglemaps" "$PLIST"
 
           echo "== Install CocoaPods =="
           cd ios
@@ -61,7 +51,7 @@ workflows:
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
           mkdir -p build/ios/ipa
           if [ -f build/ios/ipa/Runner.ipa ]; then
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer_App.ipa
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Customer.ipa
           fi
 
           echo "== Build Admin IPA (rename display name) =="
@@ -72,41 +62,14 @@ workflows:
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
           if [ -f build/ios/ipa/Runner.ipa ]; then
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin.ipa
           fi
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $ORIG_NAME" "$PLIST" 2>/dev/null || true
 
-          echo "== Fallback packaging if IPAs missing =="
-          package_app() {
-            local out="$1"
-            local app_path="$2"
-            mkdir -p build/ios/ipa/Payload
-            cp -R "$app_path" build/ios/ipa/Payload/Runner.app
-            (cd build/ios/ipa && zip -r "$out" Payload)
-            rm -rf build/ios/ipa/Payload
-          }
-          if [ ! -f build/ios/ipa/Customer_App.ipa ]; then
-            APP_PATH=""
-            if [ -d build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app ]; then
-              APP_PATH="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
-            elif [ -d build/ios/iphoneos/Runner.app ]; then
-              APP_PATH="build/ios/iphoneos/Runner.app"
-            else
-              APP_PATH=$(find build -type d -name Runner.app | head -n 1)
-            fi
-            [ -n "$APP_PATH" ] && package_app "Customer_App.ipa" "$APP_PATH" || echo "Customer Runner.app not found"
-          fi
-          if [ ! -f build/ios/ipa/Admin_App.ipa ]; then
-            APP_PATH_ADMIN=$(find build -type d -name Runner.app | head -n 1)
-            [ -n "$APP_PATH_ADMIN" ] && package_app "Admin_App.ipa" "$APP_PATH_ADMIN" || echo "Admin Runner.app not found"
-          fi
-
-          echo "== Verify artifacts =="
           ls -lah build/ios/ipa || true
     artifacts:
-      - build/ios/ipa/Customer_App.ipa
-      - build/ios/ipa/Admin_App.ipa
-      - build/**/**/*.ipa
+      - build/ios/ipa/Customer.ipa
+      - build/ios/ipa/Admin.ipa
     publishing:
       email:
         recipients:
