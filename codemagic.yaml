@@ -134,7 +134,7 @@ workflows:
           fi
 
           echo "== Create export_options.plist =="
-          cat > export_options.plist <<'PLIST'
+          cat > export_options.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -152,12 +152,12 @@ workflows:
     <key>stripSwiftSymbols</key>
     <false/>
     <key>thinning</key>
-    <string>&lt;none&gt;</string>
+    <string>none</string>
     <key>signingStyle</key>
     <string>manual</string>
 </dict>
 </plist>
-PLIST
+EOF
 
           echo "== Install CocoaPods =="
           cd ios
