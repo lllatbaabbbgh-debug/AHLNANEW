@@ -176,7 +176,15 @@ workflows:
           cp -f build/ios/ipa/*.ipa "$CM_EXPORT_DIR"/ 2>/dev/null || true
           cp -f build/ios/ipa/Dual-IPAs.zip "$CM_EXPORT_DIR"/ 2>/dev/null || true
 
+          echo "== Export artifacts to CM_BUILD_OUTPUT_DIR =="
+          mkdir -p "$CM_BUILD_OUTPUT_DIR" || true
+          cp -f build/ios/ipa/*.ipa "$CM_BUILD_OUTPUT_DIR"/ 2>/dev/null || true
+          cp -f build/ios/ipa/Dual-IPAs.zip "$CM_BUILD_OUTPUT_DIR"/ 2>/dev/null || true
+
+          echo "== List artifact directories =="
           ls -lah build/ios/ipa || true
+          ls -lah "$CM_EXPORT_DIR" || true
+          ls -lah "$CM_BUILD_OUTPUT_DIR" || true
     artifacts:
       - build/ios/ipa/Customer_App.ipa
       - build/ios/ipa/Admin_App.ipa
@@ -186,6 +194,8 @@ workflows:
       - build/ios/ipa/Dual-IPAs.zip
       - $CM_EXPORT_DIR/*.ipa
       - $CM_EXPORT_DIR/*.zip
+      - $CM_BUILD_OUTPUT_DIR/*.ipa
+      - $CM_BUILD_OUTPUT_DIR/*.zip
     publishing:
       email:
         recipients:
