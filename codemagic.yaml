@@ -131,8 +131,8 @@ workflows:
             echo "Warning: project.pbxproj not found to patch signing settings"
           fi
 
-          echo "== Create export_options.plist =="
-          cat > export_options.plist <<'EOF'
+          echo "== Create ExportOptions.plist in ios =="
+          cat > ios/ExportOptions.plist <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -170,15 +170,12 @@ workflows:
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
             --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ipa failed, will try manual packaging"
           
-          echo "== Xcode Archive and Export for Customer =="
+          echo "== Xcode Archive and Export (Runner) =="
           cd ios
-          # Clean any existing archives
           rm -rf build/Runner.xcarchive || true
-          # Archive the build
-          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode archive failed, continuing with manual packaging"
-          # Export the archive if it exists
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release archive -archivePath build/Runner.xcarchive || echo "Xcode archive failed"
           if [ -d build/Runner.xcarchive ]; then
-            xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ../export_options.plist CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO || echo "Xcode export failed, will use manual packaging"
+            xcodebuild -exportArchive -archivePath build/Runner.xcarchive -exportPath build/ios/ipa -exportOptionsPlist ExportOptions.plist || echo "Xcode export failed"
           fi
           cd ..
           
@@ -395,19 +392,7 @@ workflows:
           echo "Dual-IPAs.zip locations:"
           find . -name "Dual-IPAs.zip" -exec ls -la {} \; 2>/dev/null || echo "Not found"
     artifacts:
-      - build/ios/ipa/Customer_App.ipa
-      - build/ios/ipa/Admin_App.ipa
-      - build/ios/ipa/Dual-IPAs.zip
       - build/ios/ipa/*.ipa
-      - build/ios/ipa/Runner.ipa
-      - $CM_BUILD_OUTPUT_DIR/Customer_App.ipa
-      - $CM_BUILD_OUTPUT_DIR/Admin_App.ipa
-      - $CM_BUILD_OUTPUT_DIR/Dual-IPAs.zip
-      - $CM_BUILD_OUTPUT_DIR/Runner.ipa
-      - $CM_EXPORT_DIR/Customer_App.ipa
-      - $CM_EXPORT_DIR/Admin_App.ipa
-      - $CM_EXPORT_DIR/Dual-IPAs.zip
-      - $CM_EXPORT_DIR/Runner.ipa
     publishing:
       email:
         recipients:
