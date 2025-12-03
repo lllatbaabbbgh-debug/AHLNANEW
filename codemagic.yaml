@@ -34,14 +34,79 @@ workflows:
           flutter pub get
 
           PLIST="ios/Runner/Info.plist"
-          echo "== Ensure iOS permissions (Info.plist) =="
-          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string موقعك مطلوب لتوصيل الطلب" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription موقعك مطلوب لتوصيل الطلب" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string نحتاج الوصول للصور لاختيار وحفظ الصور" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription نحتاج الوصول للصور لاختيار وحفظ الصور" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$PLIST" 2>/dev/null || true
-          if ! /usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" | grep -q "comgooglemaps"; then
-            COUNT=$(/usr/libexec/PlistBuddy -c "Print :LSApplicationQueriesSchemes" "$PLIST" 2>/dev/null | grep -E "^[[:space:]]*[0-9]+ =" | wc -l | tr -d ' ')
-            /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:$COUNT string comgooglemaps" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:0 string comgooglemaps" "$PLIST"
-          fi
+          echo "== Ensure iOS permissions (Info.plist) via Dart (UTF-8 safe) =="
+          cat > update_plist.dart <<'DART'
+          import 'dart:io';
+          
+          void main() {
+            final plistPath = 'ios/Runner/Info.plist';
+            final file = File(plistPath);
+            if (!file.existsSync()) {
+              stderr.writeln('Info.plist not found at ' + plistPath);
+              exit(1);
+            }
+            String content = file.readAsStringSync();
+            bool changed = false;
+            
+            String ensureStringKey(String text, String key, String value) {
+              final regex = RegExp('<key>' + key + r'<\/key>\s*<string>[^<]*<\/string>', multiLine: true);
+              if (regex.hasMatch(text)) {
+                text = text.replaceAll(regex, '<key>' + key + '</key>\n    <string>' + value + '</string>');
+                changed = true;
+              } else {
+                final insertPoint = text.lastIndexOf('</dict>');
+                if (insertPoint != -1) {
+                  final injection = '  <key>' + key + '</key>\n  <string>' + value + '</string>\n';
+                  text = text.substring(0, insertPoint) + injection + text.substring(insertPoint);
+                  changed = true;
+                }
+              }
+              return text;
+            }
+            
+            String ensureSchemes(String text, List<String> schemes) {
+              final arrayRegex = RegExp(r'<key>LSApplicationQueriesSchemes<\/key>\s*<array>[\s\S]*?<\/array>', multiLine: true);
+              if (arrayRegex.hasMatch(text)) {
+                final match = arrayRegex.firstMatch(text)!;
+                String arrayBlock = match.group(0)!;
+                for (final s in schemes) {
+                  if (!RegExp('<string>' + RegExp.escape(s) + '<\/string>').hasMatch(arrayBlock)) {
+                    arrayBlock = arrayBlock.replaceFirst('</array>', '    <string>' + s + '</string>\n  </array>');
+                    changed = true;
+                  }
+                }
+                text = text.replaceRange(match.start, match.end, arrayBlock);
+              } else {
+                final insertPoint = text.lastIndexOf('</dict>');
+                if (insertPoint != -1) {
+                  final array = StringBuffer();
+                  array.writeln('  <key>LSApplicationQueriesSchemes</key>');
+                  array.writeln('  <array>');
+                  for (final s in schemes) {
+                    array.writeln('    <string>' + s + '</string>');
+                  }
+                  array.writeln('  </array>');
+                  final injection = array.toString() + '\n';
+                  text = text.substring(0, insertPoint) + injection + text.substring(insertPoint);
+                  changed = true;
+                }
+              }
+              return text;
+            }
+            
+            content = ensureStringKey(content, 'NSLocationWhenInUseUsageDescription', 'موقعك مطلوب لتوصيل الطلب');
+            content = ensureStringKey(content, 'NSPhotoLibraryUsageDescription', 'نحتاج الوصول للصور لاختيار وحفظ الصور');
+            content = ensureSchemes(content, ['comgooglemaps', 'comgooglemapsurl']);
+            
+            if (changed) {
+              file.writeAsStringSync(content);
+              stdout.writeln('Info.plist updated successfully (UTF-8 safe).');
+            } else {
+              stdout.writeln('No changes needed for Info.plist.');
+            }
+          }
+          DART
+          dart update_plist.dart
 
           echo "== Install CocoaPods =="
           cd ios
