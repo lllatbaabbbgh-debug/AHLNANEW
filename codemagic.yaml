@@ -361,29 +361,29 @@ workflows:
             cp -v build/ios/ipa/Dual-IPAs.zip "$CM_EXPORT_DIR/"
           fi
           
-          echo "Final artifact locations:"
-          echo "CM_BUILD_OUTPUT_DIR contents:"
-          ls -la "$CM_BUILD_OUTPUT_DIR" || echo "Directory empty"
-          echo "CM_EXPORT_DIR contents:"
-          ls -la "$CM_EXPORT_DIR" || echo "Directory empty"
-          echo "Local build/ios/ipa contents:"
-          ls -la build/ios/ipa/ || echo "Directory not found"
+          echo "== Force Export to CM_EXPORT_DIR =="
+          mkdir -p "$CM_EXPORT_DIR"
           
-          echo "== Verify artifacts in CM directories =="
-          echo "Files in CM_BUILD_OUTPUT_DIR:"
-          find "$CM_BUILD_OUTPUT_DIR" -name "*.ipa" -o -name "*.zip" -exec ls -la {} \; 2>/dev/null || echo "No artifacts found"
-          echo "Files in CM_EXPORT_DIR:"
-          find "$CM_EXPORT_DIR" -name "*.ipa" -o -name "*.zip" -exec ls -la {} \; 2>/dev/null || echo "No artifacts found"
+          # Copy specific artifacts to CM_EXPORT_DIR as requested
+          [ -f build/ios/ipa/Customer_App.ipa ] && cp -v build/ios/ipa/Customer_App.ipa "$CM_EXPORT_DIR/" || echo "Customer_App.ipa not found"
+          [ -f build/ios/ipa/Admin_App.ipa ] && cp -v build/ios/ipa/Admin_App.ipa "$CM_EXPORT_DIR/" || echo "Admin_App.ipa not found"
+          [ -f build/ios/ipa/Dual-IPAs.zip ] && cp -v build/ios/ipa/Dual-IPAs.zip "$CM_EXPORT_DIR/" || echo "Dual-IPAs.zip not found"
           
-          echo "=== ARTIFACT SUMMARY ==="
-          echo "Customer_App.ipa locations:"
-          find . -name "Customer_App.ipa" -exec ls -la {} \; 2>/dev/null || echo "Not found"
-          echo "Admin_App.ipa locations:"
-          find . -name "Admin_App.ipa" -exec ls -la {} \; 2>/dev/null || echo "Not found"
-          echo "Dual-IPAs.zip locations:"
-          find . -name "Dual-IPAs.zip" -exec ls -la {} \; 2>/dev/null || echo "Not found"
+          echo "== Final Verification in CM_EXPORT_DIR =="
+          ls -la "$CM_EXPORT_DIR"
+          
+          # Check for IPAs and exit 0 if found
+          if ls "$CM_EXPORT_DIR"/*.ipa 1> /dev/null 2>&1; then
+            echo "Success: IPA files found in export directory."
+            exit 0
+          else
+            echo "Error: No IPA files found in export directory."
+            exit 1
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
+      - $CM_EXPORT_DIR/*.ipa
+      - $CM_EXPORT_DIR/*.zip
     publishing:
       email:
         recipients:
