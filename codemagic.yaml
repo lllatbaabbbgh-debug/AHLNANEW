@@ -15,8 +15,8 @@ workflows:
         - push
       branch_patterns:
         - pattern: ".*"
-        include: true
-        source: true
+          include: true
+          source: true
     scripts:
       - name: Pre-build setup (fix network issues)
         script: |
@@ -246,8 +246,8 @@ workflows:
         - push
       branch_patterns:
         - pattern: ".*"
-        include: true
-        source: true
+          include: true
+          source: true
     scripts:
       - name: Flutter clean & pub get
         script: |
