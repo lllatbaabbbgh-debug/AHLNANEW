@@ -321,18 +321,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            int crossAxisCount = 1;
-            double childAspectRatio = 1.0;
-            if (!widget.compactMobile) {
-              if (constraints.maxWidth > 1400) {
-                crossAxisCount = 4;
-              } else if (constraints.maxWidth > 1000) {
-                crossAxisCount = 3;
-              } else if (constraints.maxWidth > 700) {
-                crossAxisCount = 2;
-              }
-              childAspectRatio = 1.05;
-            }
+            final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+            int crossAxisCount = widget.compactMobile
+                ? 1
+                : (isDesktop
+                    ? 5
+                    : (constraints.maxWidth > 700
+                        ? 2
+                        : 1));
+            double childAspectRatio = widget.compactMobile
+                ? 1.0
+                : (isDesktop ? 1.0 : 1.05);
 
             return GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -358,6 +357,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final typeColor = _typeColor(o.orderType);
     final isCooking = o.status == OrderStatus.cooking;
     final isIOS = Platform.isIOS;
+    final isWindows = Platform.isWindows;
 
     // Debug: عرض الإحداثيات في وحدة التحكم
     print(
@@ -369,12 +369,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         onTap: () => _showDetails(o),
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 150,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
+        height: 145,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
                 color: Colors.black.withOpacity(0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
@@ -486,7 +486,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (!isIOS)
+                if (isWindows)
                   Row(
                     children: [
                       Expanded(
@@ -753,15 +753,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   ),
 
                 // الأزرار التفاعلية
-                if (!isIOS)
+                if (isWindows)
                   !isCooking
                       ? Row(
                           children: [
                             Expanded(
                               child: TextButton(
-                                onPressed: widget.restrictActions
-                                    ? null
-                                    : () => _cancel(index),
+                                onPressed: () => _cancel(index),
                                 style: TextButton.styleFrom(
                                   backgroundColor: Colors.red.shade50,
                                   foregroundColor: Colors.red,
@@ -778,9 +776,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: widget.restrictActions
-                                    ? null
-                                    : () => _approve(index),
+                                onPressed: () => _approve(index),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: primaryColor,
                                   foregroundColor: Colors.white,
@@ -800,9 +796,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       : SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: widget.restrictActions
-                                ? null
-                                : () => _complete(index),
+                            onPressed: () => _complete(index),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blueAccent,
                               foregroundColor: Colors.white,

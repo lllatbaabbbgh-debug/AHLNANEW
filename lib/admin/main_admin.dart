@@ -85,8 +85,9 @@ class _AdminRootState extends State<AdminRoot> {
     final primaryGreen = theme.primaryColor;
 
     final isIOS = Platform.isIOS;
+    final isWindows = Platform.isWindows;
     final screens = [
-      const AdminHomeScreen(compactMobile: true),
+      const AdminHomeScreen(),
       const AdminMenuScreen(),
       const AdminRecordsScreen(),
       const AdminOffersScreen(),
@@ -99,10 +100,15 @@ class _AdminRootState extends State<AdminRoot> {
       'العروضات',
     ];
 
-    if (isIOS) {
-      return const Scaffold(
-        body: Padding(
-          padding: EdgeInsets.all(20.0),
+    if (!isWindows) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('قائمة التوصيل'),
+          backgroundColor: Colors.transparent,
+          centerTitle: false,
+        ),
+        body: const Padding(
+          padding: EdgeInsets.all(16.0),
           child: AdminHomeScreen(
             restrictActions: true,
             compactMobile: true,
@@ -114,7 +120,7 @@ class _AdminRootState extends State<AdminRoot> {
     return Scaffold(
       body: Row(
         children: [
-          // القائمة الجانبية (Sidebar)
+          // القائمة الجانبية (Sidebar) - تبقى على ويندوز كلوحة إدارة
           Container(
             width: 260,
             decoration: BoxDecoration(
