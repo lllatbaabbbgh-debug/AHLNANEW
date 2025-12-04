@@ -384,6 +384,9 @@ workflows:
           find . -name "Dual-IPAs.zip" -exec ls -la {} \; 2>/dev/null || echo "Not found"
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/ipa/*.zip
+      - ios/build/ios/ipa/*.ipa
+      - build/**/ipa/*.ipa
     publishing:
       email:
         recipients:
