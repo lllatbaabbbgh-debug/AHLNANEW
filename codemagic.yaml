@@ -157,13 +157,25 @@ workflows:
           pod install --repo-update
           cd ..
 
-          echo "== Build Admin iOS (prepare) =="
+          echo "== Build Customer iOS (unsigned) =="
           ORIG_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$PLIST" 2>/dev/null || echo "Ahlna Daquq")
-          flutter build ios --no-codesign --release \
+          flutter build ipa --no-codesign --release \
+            --target lib/main.dart \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
+            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ipa customer failed, continuing"
+          # Preserve customer Runner.app for separate packaging
+          if [ -d build/ios/iphoneos/Runner.app ]; then
+            rm -rf build/ios/iphoneos/Runner-Customer.app || true
+            cp -R build/ios/iphoneos/Runner.app build/ios/iphoneos/Runner-Customer.app
+          fi
+
+          echo "== Build Admin iOS (unsigned) =="
+          flutter build ipa --no-codesign --release \
             --target lib/admin/main_admin.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
             --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
-            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ios failed, continuing"
+            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY || echo "Flutter build ipa admin failed, continuing"
           
           echo "== Xcode Archive and Export (Runner) =="
           cd ios
@@ -191,21 +203,13 @@ workflows:
             popd >/dev/null
           fi
 
-          echo "== Build Admin IPA (rename display name and bundle id) =="
-          # Read original bundle identifier from Info.plist if present; otherwise from Xcode project
+          echo "== Prepare Admin app bundle identifiers for packaging =="
+          # Read original bundle identifier from project if Info.plist has a placeholder
           ORIG_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST" 2>/dev/null || echo "")
           if [[ -z "$ORIG_BUNDLE_ID" || "$ORIG_BUNDLE_ID" == *"PRODUCT_BUNDLE_IDENTIFIER"* ]]; then
             ORIG_BUNDLE_ID=$(grep -E 'PRODUCT_BUNDLE_IDENTIFIER = ' ios/Runner.xcodeproj/project.pbxproj | grep -v RunnerTests | head -n1 | sed -E 's/.*PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/\1/')
           fi
           ADMIN_BUNDLE_ID="${ORIG_BUNDLE_ID}.admin"
-          # Set display name to Admin and bundle identifier to the admin variant
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ahlna Admin" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Ahlna Admin" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $ADMIN_BUNDLE_ID" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $ADMIN_BUNDLE_ID" "$PLIST" 2>/dev/null || true
-          flutter build ipa --no-codesign --release \
-            --target lib/admin/main_admin.dart \
-            --dart-define=SUPABASE_URL=$SUPABASE_URL \
-            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
-            --dart-define=SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
           
           echo "== Xcode Archive and Export for Admin =="
           cd ios
@@ -223,16 +227,15 @@ workflows:
           find build -name "*.ipa" -type f
           
           echo "== Handle Admin IPAs from different sources =="
-          # Handle IPAs created by xcodebuild (usually named after the scheme)
-          if [ -f ios/build/ios/ipa/Runner.ipa ]; then
-            echo "Found Runner.ipa from xcodebuild export, copying to Admin_App.ipa"
-            cp -f ios/build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
-          fi
-          
-          # Handle IPAs created by flutter build ipa
-          if [ -f build/ios/ipa/Runner.ipa ]; then
-            echo "Found Runner.ipa from flutter build, copying to Admin_App.ipa"
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
+          # Package Customer from preserved Runner-Customer.app
+          if [ -d build/ios/iphoneos/Runner-Customer.app ]; then
+            echo "Creating Customer_App.ipa from Runner-Customer.app"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner-Customer.app Payload/Runner.app
+            zip -r Customer_App.ipa Payload
+            mv Customer_App.ipa ../ipa/Customer_App.ipa
+            popd >/dev/null
           fi
           
           if [ -d build/ios/iphoneos/Runner.app ]; then
@@ -254,8 +257,7 @@ workflows:
           else
             echo "Warning: No IPA or app found for Admin"
           fi
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $ORIG_NAME" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $ORIG_BUNDLE_ID" "$PLIST" 2>/dev/null || true
+          # No need to restore base Info.plist because we didn't modify it globally
 
           echo "== Fallback packaging (if Runner.ipa not found) =="
           if [ ! -f build/ios/ipa/Customer_App.ipa ] && [ -d build/ios/iphoneos/Runner.app ]; then
