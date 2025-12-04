@@ -385,6 +385,9 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/ipa/*.zip
+      - ios/build/ios/ipa/*.ipa
+      - build/**/*.ipa
+      - build/**/*.zip
     publishing:
       email:
         recipients:
