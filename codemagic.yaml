@@ -191,8 +191,16 @@ workflows:
             popd >/dev/null
           fi
 
-          echo "== Build Admin IPA (rename display name) =="
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ahlna Admin" "$PLIST" 2>/dev/null || true
+          echo "== Build Admin IPA (rename display name and bundle id) =="
+          # Read original bundle identifier from Info.plist if present; otherwise from Xcode project
+          ORIG_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST" 2>/dev/null || echo "")
+          if [[ -z "$ORIG_BUNDLE_ID" || "$ORIG_BUNDLE_ID" == *"PRODUCT_BUNDLE_IDENTIFIER"* ]]; then
+            ORIG_BUNDLE_ID=$(grep -E 'PRODUCT_BUNDLE_IDENTIFIER = ' ios/Runner.xcodeproj/project.pbxproj | grep -v RunnerTests | head -n1 | sed -E 's/.*PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/\1/')
+          fi
+          ADMIN_BUNDLE_ID="${ORIG_BUNDLE_ID}.admin"
+          # Set display name to Admin and bundle identifier to the admin variant
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ahlna Admin" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Ahlna Admin" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $ADMIN_BUNDLE_ID" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $ADMIN_BUNDLE_ID" "$PLIST" 2>/dev/null || true
           flutter build ipa --no-codesign --release \
             --target lib/admin/main_admin.dart \
             --dart-define=SUPABASE_URL=$SUPABASE_URL \
@@ -242,6 +250,7 @@ workflows:
             echo "Warning: No IPA or app found for Admin"
           fi
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $ORIG_NAME" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $ORIG_BUNDLE_ID" "$PLIST" 2>/dev/null || true
 
           echo "== Fallback packaging (if Runner.ipa not found) =="
           if [ ! -f build/ios/ipa/Customer_App.ipa ] || [ ! -f build/ios/ipa/Admin_App.ipa ]; then
