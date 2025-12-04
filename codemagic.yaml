@@ -235,17 +235,22 @@ workflows:
             cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
           fi
           
-          if [ -f build/ios/ipa/Runner.ipa ]; then
-            echo "Found Runner.ipa, copying to Admin_App.ipa"
-            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
-          elif [ -f build/ios/iphoneos/Runner.app ]; then
-            echo "Creating Admin_App.ipa from Runner.app"
+          if [ -d build/ios/iphoneos/Runner.app ]; then
+            echo "Preparing Admin app bundle with modified identifiers"
+            cp -R build/ios/iphoneos/Runner.app build/ios/iphoneos/Runner-Admin.app
+            ADMIN_PLIST="build/ios/iphoneos/Runner-Admin.app/Info.plist"
+            /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ahlna Admin" "$ADMIN_PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Ahlna Admin" "$ADMIN_PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $ADMIN_BUNDLE_ID" "$ADMIN_PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $ADMIN_BUNDLE_ID" "$ADMIN_PLIST" 2>/dev/null || true
+            echo "Creating Admin_App.ipa from Runner-Admin.app"
             pushd build/ios/iphoneos >/dev/null
             rm -rf Payload && mkdir -p Payload
-            cp -R Runner.app Payload/
+            cp -R Runner-Admin.app Payload/Runner.app
             zip -r Admin_App.ipa Payload
             mv Admin_App.ipa ../ipa/Admin_App.ipa
             popd >/dev/null
+          elif [ -f build/ios/ipa/Runner.ipa ]; then
+            echo "Copying existing Runner.ipa to Admin_App.ipa"
+            cp -f build/ios/ipa/Runner.ipa build/ios/ipa/Admin_App.ipa
           else
             echo "Warning: No IPA or app found for Admin"
           fi
@@ -253,20 +258,23 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $ORIG_BUNDLE_ID" "$PLIST" 2>/dev/null || true
 
           echo "== Fallback packaging (if Runner.ipa not found) =="
-          if [ ! -f build/ios/ipa/Customer_App.ipa ] || [ ! -f build/ios/ipa/Admin_App.ipa ]; then
-            echo "Packaging fallback..."
-            for APP in Customer_App Admin_App; do
-              if [ ! -f build/ios/ipa/${APP}.ipa ]; then
-                if [ -d build/ios/iphoneos/Runner.app ]; then
-                  pushd build/ios/iphoneos >/dev/null
-                  rm -rf Payload && mkdir -p Payload
-                  cp -R Runner.app Payload/
-                  zip -r ${APP}.ipa Payload
-                  mv ${APP}.ipa ../ipa/${APP}.ipa
-                  popd >/dev/null
-                fi
-              fi
-            done
+          if [ ! -f build/ios/ipa/Customer_App.ipa ] && [ -d build/ios/iphoneos/Runner.app ]; then
+            echo "Packaging Customer_App.ipa from Runner.app"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner.app Payload/
+            zip -r Customer_App.ipa Payload
+            mv Customer_App.ipa ../ipa/Customer_App.ipa
+            popd >/dev/null
+          fi
+          if [ ! -f build/ios/ipa/Admin_App.ipa ] && [ -d build/ios/iphoneos/Runner-Admin.app ]; then
+            echo "Packaging Admin_App.ipa from Runner-Admin.app"
+            pushd build/ios/iphoneos >/dev/null
+            rm -rf Payload && mkdir -p Payload
+            cp -R Runner-Admin.app Payload/Runner.app
+            zip -r Admin_App.ipa Payload
+            mv Admin_App.ipa ../ipa/Admin_App.ipa
+            popd >/dev/null
           fi
 
           echo "== Bundle IPAs into a single zip for easy download =="
