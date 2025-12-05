@@ -6,12 +6,12 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:ahlna_daquq/core/theme_controller.dart';
 import 'package:ahlna_daquq/main.dart';
 
 void main() {
   testWidgets('App renders Home title', (WidgetTester tester) async {
-    await tester.pumpWidget(const AhlnaDaquqApp());
+    await tester.pumpWidget(AhlnaDaquqApp(themeController: ThemeController()));
     expect(find.text('Ahlna Daquq'), findsOneWidget);
   });
 }

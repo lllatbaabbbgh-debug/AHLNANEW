@@ -94,7 +94,10 @@ class _DetailsScreenState extends State<DetailsScreen>
                   children: [
                     Text(
                       widget.item.name,
-                      style: Theme.of(context).textTheme.displaySmall,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(

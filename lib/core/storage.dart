@@ -8,6 +8,17 @@ class Storage {
   static const _kSupabaseUrl = 'supabase_url';
   static const _kSupabaseAnon = 'supabase_anon_key';
   static const _kSupabaseSvc = 'supabase_service_key';
+  static const _kTheme = 'theme_mode';
+
+  static Future<void> saveTheme(String theme) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kTheme, theme);
+  }
+
+  static Future<String?> loadTheme() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kTheme);
+  }
   static const _kProfileImage = 'profile_image_path';
 
   static Future<bool> isRegistered() async {
@@ -82,5 +93,15 @@ class Storage {
     await p.remove(_kPhone);
     await p.remove(_kAddress);
     await p.remove(_kProfileImage);
+  }
+
+  static Future<void> setString(String key, String value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(key, value);
+  }
+
+  static Future<String?> getString(String key) async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(key);
   }
 }

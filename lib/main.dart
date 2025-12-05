@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/storage.dart';
 import 'core/supabase_client.dart';
+import 'core/theme_controller.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
@@ -18,18 +19,26 @@ Future<void> main() async {
   await SupabaseManager.init();
   final showLogin = !(await Storage.isRegistered());
   final initialProfile = await Storage.loadProfile();
+  final themeController = ThemeController();
   runApp(
-    AhlnaDaquqApp(showLoginFirst: showLogin, initialProfile: initialProfile),
+    AhlnaDaquqApp(
+      showLoginFirst: showLogin, 
+      initialProfile: initialProfile,
+      themeController: themeController,
+    ),
   );
 }
 
 class AhlnaDaquqApp extends StatelessWidget {
   final bool showLoginFirst;
   final Map<String, String>? initialProfile;
+  final ThemeController themeController;
+
   const AhlnaDaquqApp({
     super.key,
     this.showLoginFirst = true,
     this.initialProfile,
+    required this.themeController,
   });
 
   @override
@@ -57,13 +66,127 @@ class AhlnaDaquqApp extends StatelessWidget {
       controller: cart,
       child: ProfileProvider(
         controller: profile,
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
+        child: ThemeProvider(
+          controller: themeController,
+          child: ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeController,
+            builder: (context, mode, _) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                themeMode: mode,
+                darkTheme: ThemeData(
+                  useMaterial3: true,
+                  brightness: Brightness.dark,
+                  primaryColor: const Color(0xFF23AA49),
+                  scaffoldBackgroundColor: const Color(0xFF121212),
+                  colorScheme: const ColorScheme.dark(
+                    primary: Color(0xFF23AA49),
+                    secondary: Color(0xFF23AA49),
+                    surface: Color(0xFF1E1E1E),
+                    onSurface: Colors.white,
+                    onPrimary: Colors.white,
+                    outline: Color(0xFF424242),
+                  ),
+                  appBarTheme: const AppBarTheme(
+                    backgroundColor: Color(0xFF1E1E1E),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    centerTitle: true,
+                    surfaceTintColor: Colors.transparent,
+                    iconTheme: IconThemeData(color: Colors.white),
+                    titleTextStyle: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Cairo',
+                    ),
+                  ),
+                  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                    backgroundColor: Color(0xFF1E1E1E),
+                    selectedItemColor: Color(0xFF23AA49),
+                    unselectedItemColor: Colors.grey,
+                    elevation: 15,
+                    type: BottomNavigationBarType.fixed,
+                    showUnselectedLabels: true,
+                  ),
+                  inputDecorationTheme: InputDecorationTheme(
+                    filled: true,
+                    fillColor: const Color(0xFF2C2C2C),
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    prefixIconColor: const Color(0xFF23AA49),
+                    suffixIconColor: Colors.grey,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF23AA49),
+                        width: 1.5,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+                    ),
+                  ),
+                  elevatedButtonTheme: ElevatedButtonThemeData(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF23AA49),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 24,
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  textTheme: const TextTheme(
+                    headlineSmall: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    titleLarge: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    bodyLarge: TextStyle(color: Colors.white),
+                    bodyMedium: TextStyle(color: Colors.white70),
+                  ),
+                  dialogTheme: DialogThemeData(
+                    backgroundColor: const Color(0xFF1E1E1E),
+                    surfaceTintColor: const Color(0xFF1E1E1E),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    titleTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
 
-          // ============================================================
-          // 🎨 ثيم HyperMart (أخضر عصري + خلفية نظيفة)
-          // ============================================================
-          theme: ThemeData(
+                // ============================================================
+                // 🎨 ثيم HyperMart (أخضر عصري + خلفية نظيفة)
+                // ============================================================
+                theme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.light,
 
@@ -202,6 +325,9 @@ class AhlnaDaquqApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           home: showLoginFirst ? const LoginScreen() : const RootScaffold(),
+        );
+            },
+          ),
         ),
       ),
     );

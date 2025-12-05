@@ -9,6 +9,7 @@ import '../core/cart.dart';
 import '../core/profile.dart';
 import '../models/food_item.dart';
 import 'details_screen.dart';
+import 'settings_screen.dart';
 import 'cart_screen.dart';
 import '../core/repos/food_repository.dart';
 import '../core/repos/offers_repository.dart';
@@ -179,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen>
               controller: _searchController,
               onChanged: (v) => _search.value = v.trim(),
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Colors.black87),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: InputDecoration(
                 hintText: 'بحث',
                 hintStyle: TextStyle(color: Colors.grey[400]),
@@ -207,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen>
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: theme.inputDecorationTheme.fillColor ?? Colors.white,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: Colors.grey.shade200),
@@ -233,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen>
                     key: _cartKey,
                     icon: Icon(
                       Icons.shopping_cart_outlined,
-                      color: hasItems ? theme.primaryColor : Colors.black87,
+                      color: hasItems ? theme.primaryColor : theme.iconTheme.color,
                       size: 28,
                     ),
                     onPressed: () {
@@ -273,9 +274,9 @@ class _HomeScreenState extends State<HomeScreen>
         actions: [
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.menu_rounded,
-                color: Colors.black87,
+                color: theme.iconTheme.color,
                 size: 30,
               ),
               onPressed: () => Scaffold.of(context).openEndDrawer(),
@@ -308,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen>
     final profile = ProfileProvider.of(context);
 
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       elevation: 10,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
@@ -419,7 +420,13 @@ class _HomeScreenState extends State<HomeScreen>
                   context,
                   icon: Icons.settings_rounded,
                   title: 'الإعدادات',
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
                 const Divider(),
@@ -456,12 +463,12 @@ class _HomeScreenState extends State<HomeScreen>
       child: ListTile(
         leading: Icon(
           icon,
-          color: isHighlight ? theme.primaryColor : Colors.grey[700],
+          color: isHighlight ? theme.primaryColor : theme.iconTheme.color?.withOpacity(0.7) ?? Colors.grey,
         ),
         title: Text(
           title,
           style: TextStyle(
-            color: isHighlight ? theme.primaryColor : Colors.black87,
+            color: isHighlight ? theme.primaryColor : theme.textTheme.bodyLarge?.color,
             fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
           ),
         ),
@@ -593,7 +600,7 @@ class _CategoryPageState extends State<_CategoryPage>
           final disabled = !item.isAvailable;
           return Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.cardColor, // Changed from Colors.white
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -625,11 +632,11 @@ class _CategoryPageState extends State<_CategoryPage>
                 item.name,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: disabled ? Colors.grey : Colors.black,
+                  color: disabled ? Colors.grey : theme.textTheme.bodyLarge?.color,
                 ),
               ),
               subtitle: Text(
-                '${item.price} IQD',
+                '${item.price % 1 == 0 ? item.price.toInt() : item.price} IQD',
                 style: TextStyle(
                   color: disabled ? Colors.grey : theme.primaryColor,
                 ),
@@ -787,7 +794,7 @@ class _CategoryPageState extends State<_CategoryPage>
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.cardColor,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(30),
                 topRight: Radius.circular(30),
@@ -806,8 +813,8 @@ class _CategoryPageState extends State<_CategoryPage>
               children: [
                 Text(
                   item.name,
-                  style: const TextStyle(
-                    color: Colors.black87,
+                  style: TextStyle(
+                    color: theme.textTheme.bodyLarge?.color,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -818,7 +825,7 @@ class _CategoryPageState extends State<_CategoryPage>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: theme.textTheme.bodyMedium?.color,
                     fontSize: 14,
                     height: 1.4,
                   ),
@@ -886,7 +893,7 @@ class _CategoryPageState extends State<_CategoryPage>
     // هذا الكونتينر الخارجي يحدد الإطار والظل - دائماً مرئي
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
