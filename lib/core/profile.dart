@@ -4,11 +4,13 @@ class ProfileController extends ChangeNotifier {
   String name = '';
   String phone = '';
   String address = '';
+  String? imagePath; // مسار الصورة المحلية
 
-  void set({String? name, String? phone, String? address}) {
+  void set({String? name, String? phone, String? address, String? imagePath}) {
     if (name != null) this.name = name;
     if (phone != null) this.phone = phone;
     if (address != null) this.address = address;
+    if (imagePath != null) this.imagePath = imagePath;
     notifyListeners();
   }
 }

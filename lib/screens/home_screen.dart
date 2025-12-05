@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -346,14 +347,19 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                           ],
                         ),
-                        child: const CircleAvatar(
+                        child: CircleAvatar(
                           radius: 40,
                           backgroundColor: Colors.white,
-                          child: Icon(
-                            Icons.person,
-                            size: 45,
-                            color: Colors.grey,
-                          ),
+                          backgroundImage: (profile.imagePath != null && profile.imagePath!.isNotEmpty)
+                              ? FileImage(File(profile.imagePath!))
+                              : null,
+                          child: (profile.imagePath == null || profile.imagePath!.isEmpty)
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 45,
+                                  color: Colors.grey,
+                                )
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 15),

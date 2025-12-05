@@ -45,6 +45,13 @@ class AhlnaDaquqApp extends StatelessWidget {
         profile.set(name: name, phone: phone, address: address);
       }
     }
+    
+    // تحميل صورة البروفايل عند بدء التطبيق
+    Storage.loadProfileImage().then((path) {
+      if (path != null && path.isNotEmpty) {
+        profile.set(imagePath: path);
+      }
+    });
 
     return CartProvider(
       controller: cart,
