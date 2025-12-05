@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   connectivity_plus
+  file_selector_windows
   geolocator_windows
   local_notifier
   screen_retriever_windows

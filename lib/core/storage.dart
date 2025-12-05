@@ -8,6 +8,7 @@ class Storage {
   static const _kSupabaseUrl = 'supabase_url';
   static const _kSupabaseAnon = 'supabase_anon_key';
   static const _kSupabaseSvc = 'supabase_service_key';
+  static const _kProfileImage = 'profile_image_path';
 
   static Future<bool> isRegistered() async {
     final p = await SharedPreferences.getInstance();
@@ -64,11 +65,22 @@ class Storage {
     return p.getString(_kSupabaseSvc) ?? '';
   }
 
+  static Future<void> saveProfileImage(String path) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kProfileImage, path);
+  }
+
+  static Future<String?> loadProfileImage() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kProfileImage);
+  }
+
   static Future<void> clearUser() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kRegistered);
     await p.remove(_kName);
     await p.remove(_kPhone);
     await p.remove(_kAddress);
+    await p.remove(_kProfileImage);
   }
 }

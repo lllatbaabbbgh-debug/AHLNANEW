@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../widgets/elastic_button.dart';
 import '../core/profile.dart';
 import '../core/repos/profile_repository.dart';
@@ -20,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   bool _loaded = false;
+  File? _localImage;
 
   @override
   void dispose() {
@@ -27,6 +32,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      // 1. الحصول على مسار التخزين المحلي الدائم للتطبيق
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = p.basename(pickedFile.path);
+      final savedImage = await File(
+        pickedFile.path,
+      ).copy('${appDir.path}/$fileName');
+
+      // 2. حفظ المسار في التخزين المحلي
+      await Storage.saveProfileImage(savedImage.path);
+
+      // 3. تحديث الواجهة
+      if (mounted) {
+        setState(() {
+          _localImage = savedImage;
+        });
+      }
+    }
   }
 
   void _save() {
@@ -129,6 +158,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_loaded) return;
     _loaded = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // تحميل الصورة المحلية
+      final imagePath = await Storage.loadProfileImage();
+      if (imagePath != null) {
+        final file = File(imagePath);
+        if (await file.exists()) {
+          setState(() {
+            _localImage = file;
+          });
+        }
+      }
+
       final profile = ProfileProvider.of(context);
       if (profile.phone.isEmpty ||
           profile.name.isEmpty ||
@@ -218,25 +258,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: CircleAvatar(
                           radius: 50,
                           backgroundColor: inputColor,
-                          child: Icon(
-                            Icons.person,
-                            size: 60,
-                            color: cs.primary.withOpacity(0.7),
-                          ),
+                          backgroundImage: _localImage != null
+                              ? FileImage(_localImage!)
+                              : null,
+                          child: _localImage == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: cs.primary.withOpacity(0.7),
+                                )
+                              : null,
                         ),
                       ),
                       // أيقونة تعديل الصورة (للزينة حالياً)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: cs.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: backgroundColor, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 16,
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: cs.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: backgroundColor,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ),
                     ],
