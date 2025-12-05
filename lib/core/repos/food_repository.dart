@@ -1,38 +1,81 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/food_item.dart';
 import '../supabase_client.dart';
 
 class FoodRepository {
   static const table = 'food_items';
+  final Box _box = Hive.box('food_cache');
 
   SupabaseClient? get _c => SupabaseManager.client;
   SupabaseClient? get _svc => SupabaseManager.serviceClient;
 
   Future<List<FoodItem>> fetchByCategory(String category) async {
     final c = _svc ?? _c;
+    
+    // 1. Fetch from Cache first (Offline First)
+    final cachedData = _box.get(category);
+    if (cachedData != null) {
+      try {
+        final List<dynamic> decoded = cachedData;
+        final items = decoded
+            .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        if (items.isNotEmpty) {
+          print('📦 Loaded ${items.length} items from cache for $category');
+          // We return cached items, but we also want to trigger an update in background if possible
+          // However, as a Future, we return what we have. 
+          // For "Live" updates, stream logic handles it better, but for single fetch:
+          _updateCacheInBackground(c, category); 
+          return items;
+        }
+      } catch (e) {
+        print('⚠️ Error parsing cache for $category: $e');
+      }
+    }
+
     if (c == null) {
       print('❌ No Supabase client available');
       return [];
     }
+
+    // 2. If no cache or cache error, fetch from network
     try {
-      print('🔍 Fetching items for category: $category');
+      return await _fetchAndCache(c, category);
+    } catch (e) {
+      print('❌ Error fetching items for $category: $e');
+      return [];
+    }
+  }
+
+  Future<void> _updateCacheInBackground(SupabaseClient? c, String category) async {
+    if (c == null) return;
+    try {
+      await _fetchAndCache(c, category);
+      print('🔄 Background cache update completed for $category');
+    } catch (e) {
+      print('⚠️ Background cache update failed for $category: $e');
+    }
+  }
+
+  Future<List<FoodItem>> _fetchAndCache(SupabaseClient c, String category) async {
+      print('🔍 Fetching items for category from network: $category');
       final res = await c
           .from(table)
           .select()
           .eq('category', category)
           .order('name');
+      
       print('✅ Fetched ${res.length} items for $category');
+      
+      // 3. Update Cache
       if (res.isNotEmpty) {
-        print('🔑 First item keys: ${(res.first as Map).keys.toList()}');
-        print('📄 First item data: ${res.first}');
+        await _box.put(category, res);
       }
+      
       return (res as List)
           .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-    } catch (e) {
-      print('❌ Error fetching items for $category: $e');
-      return [];
-    }
   }
 
   Stream<List<FoodItem>> streamByCategory(String category) {
@@ -44,17 +87,40 @@ class FoodRepository {
         .eq('category', category)
         .order('name')
         .map(
-          (rows) => rows
+          (rows) {
+            // Update cache on stream update too
+            _box.put(category, rows);
+            return rows
               .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
-              .toList(),
+              .toList();
+          },
         )
         .asBroadcastStream();
   }
 
   Stream<List<FoodItem>> streamWithInitial(String category) {
     return Stream<List<FoodItem>>.multi((controller) async {
-      final initial = await fetchByCategory(category);
-      controller.add(initial);
+      // 1. Emit cached data immediately
+      final cachedData = _box.get(category);
+      if (cachedData != null) {
+        try {
+           final List<dynamic> decoded = cachedData;
+           final items = decoded
+              .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+           controller.add(items);
+        } catch (_) {}
+      }
+
+      // 2. Fetch fresh data and emit
+      try {
+        final initial = await fetchByCategory(category);
+        controller.add(initial);
+      } catch (_) {
+        // If network fails, we already emitted cache.
+      }
+
+      // 3. Listen to real-time updates if online
       final sub = streamByCategory(
         category,
       ).listen(controller.add, onError: controller.addError);

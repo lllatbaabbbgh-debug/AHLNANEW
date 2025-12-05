@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io' show Platform;
+import 'package:local_notifier/local_notifier.dart';
 import '../../admin/models/order.dart';
 import '../../models/food_item.dart';
 import '../supabase_client.dart';
@@ -427,7 +429,10 @@ class OrderRepository {
         event: PostgresChangeEvent.insert,
         schema: 'public',
         table: ordersTable,
-        callback: (_) => emit(),
+        callback: (payload) {
+          emit();
+          _showNotification(payload);
+        },
       );
       channel.onPostgresChanges(
         event: PostgresChangeEvent.update,
@@ -480,5 +485,32 @@ class OrderRepository {
     if (c == null) return [];
     final res = await c.from(recordsTable).select().order('created_at');
     return (res as List).map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  void _showNotification(PostgresChangePayload payload) {
+    if (!Platform.isWindows) return;
+
+    final newRecord = payload.newRecord;
+    if (newRecord.isEmpty) return;
+
+    final customerName = newRecord['customer_name'] ?? 'زبون';
+    final price = newRecord['total_price']?.toString() ?? '0';
+
+    final notification = LocalNotification(
+      identifier: newRecord['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: "طلب جديد!",
+      body: "وصل طلب بقيمة $price من $customerName",
+      actions: [
+        LocalNotificationAction(
+          text: 'فتح التطبيق',
+        ),
+      ],
+    );
+
+    notification.onClick = () {
+      print('Notification clicked');
+    };
+
+    notification.show();
   }
 }

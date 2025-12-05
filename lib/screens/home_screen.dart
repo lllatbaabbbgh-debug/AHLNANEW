@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../core/cart.dart';
 import '../core/profile.dart';
 import '../models/food_item.dart';
@@ -8,6 +11,8 @@ import 'details_screen.dart';
 import 'cart_screen.dart';
 import '../core/repos/food_repository.dart';
 import '../core/repos/offers_repository.dart';
+import '../core/ui_utils.dart';
+import '../core/animations/fly_animation.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -36,6 +41,8 @@ class _HomeScreenState extends State<HomeScreen>
   final ValueNotifier<String?> _offerLink = ValueNotifier<String?>(null);
   final _offersRepo = OffersRepository();
   StreamSubscription<String?>? _offerSub;
+  final GlobalKey _cartKey = GlobalKey();
+  final Box _offersBox = Hive.box('offers_cache');
 
   @override
   void initState() {
@@ -52,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen>
           stream: repo.liveByCategory(c),
           search: _search,
           offerLink: _offerLink,
+          cartKey: _cartKey,
         ),
       );
     }
@@ -71,13 +79,27 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadOfferLink() async {
+    // 1. Load from local cache immediately
+    final cachedLink = _offersBox.get('offer_link') as String?;
+    if (cachedLink != null) {
+      _offerLink.value = cachedLink;
+    }
+
     try {
       final link = await _offersRepo.getLink().timeout(
         const Duration(seconds: 5),
       );
-      _offerLink.value = link;
+      // 2. Update cache and UI
+      if (link != null) {
+        _offerLink.value = link;
+        await _offersBox.put('offer_link', link);
+      }
+      
       _offerSub = _offersRepo.liveLink().listen((l) {
-        _offerLink.value = l;
+        if (l != null) {
+          _offerLink.value = l;
+          _offersBox.put('offer_link', l);
+        }
       });
     } catch (e) {
       // في حال الخطأ نُبقي القيمة الحالية كما هي
@@ -101,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen>
             stream: repo.liveByCategory(c),
             search: _search,
             offerLink: _offerLink,
+            cartKey: _cartKey,
           );
         } catch (e) {
           print('⚠️ خطأ في تحميل قسم $c: $e');
@@ -111,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen>
             stream: const Stream<List<FoodItem>>.empty(),
             search: _search,
             offerLink: _offerLink,
+            cartKey: _cartKey,
           );
         }
       }).toList();
@@ -205,6 +229,7 @@ class _HomeScreenState extends State<HomeScreen>
                 alignment: Alignment.center,
                 children: [
                   IconButton(
+                    key: _cartKey,
                     icon: Icon(
                       Icons.shopping_cart_outlined,
                       color: hasItems ? theme.primaryColor : Colors.black87,
@@ -380,11 +405,7 @@ class _HomeScreenState extends State<HomeScreen>
                   title: 'عنواننا',
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('كركوك - داقوق - الشارع العام'),
-                      ),
-                    );
+                    showModernSnackBar(context, 'كركوك - داقوق - الشارع العام', icon: Icons.location_on);
                   },
                 ),
                 const SizedBox(height: 10),
@@ -485,6 +506,7 @@ class _CategoryPage extends StatefulWidget {
   final Stream<List<FoodItem>> stream;
   final ValueListenable<String> search;
   final ValueListenable<String?> offerLink;
+  final GlobalKey cartKey;
 
   const _CategoryPage({
     super.key,
@@ -493,6 +515,7 @@ class _CategoryPage extends StatefulWidget {
     required this.stream,
     required this.search,
     required this.offerLink,
+    required this.cartKey,
   });
 
   @override
@@ -579,12 +602,15 @@ class _CategoryPageState extends State<_CategoryPage>
                 borderRadius: BorderRadius.circular(8),
                 child: Opacity(
                   opacity: disabled ? 0.45 : 1.0,
-                  child: Image.network(
-                    item.imageUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: item.imageUrl,
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) =>
                         const Icon(Icons.fastfood, color: Colors.grey),
                   ),
                 ),
@@ -617,9 +643,7 @@ class _CategoryPageState extends State<_CategoryPage>
                   : null,
               onTap: () {
                 if (disabled) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم نفاذ الكمية')),
-                  );
+                  showModernSnackBar(context, 'تم نفاذ الكمية ⚠️', color: Colors.grey, icon: Icons.warning_amber_rounded);
                   return;
                 }
                 Navigator.push(
@@ -699,17 +723,13 @@ class _CategoryPageState extends State<_CategoryPage>
                                       ],
                                     ),
                                     clipBehavior: Clip.antiAlias,
-                                    child: Image.network(
-                                      item.imageUrl,
+                                    child: CachedNetworkImage(
+                                      imageUrl: item.imageUrl,
                                       fit: BoxFit.cover,
-                                      loadingBuilder: (context, child, p) =>
-                                          p == null
-                                          ? child
-                                          : const Center(
-                                              child:
-                                                  CircularProgressIndicator(),
-                                            ),
-                                      errorBuilder: (context, error, stack) =>
+                                      placeholder: (context, url) => const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                      errorWidget: (context, url, error) =>
                                           Container(
                                             color: Colors.grey[200],
                                             child: const Icon(
@@ -812,32 +832,33 @@ class _CategoryPageState extends State<_CategoryPage>
                     CircleAvatar(
                       backgroundColor:
                           dimmed ? Colors.grey : theme.primaryColor,
-                      child: IconButton(
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        onPressed: dimmed
-                            ? () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('تم نفاذ الكمية')),
-                                );
-                              }
-                            : () {
-                                CartProvider.of(context).add(item);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('تمت الإضافة إلى السلة'),
-                                    duration:
-                                        const Duration(milliseconds: 500),
-                                    behavior: SnackBarBehavior.floating,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 100,
-                                      vertical: 20,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                );
-                              },
+                      child: Builder(
+                        builder: (btnContext) {
+                          return IconButton(
+                            icon: const Icon(Icons.add, color: Colors.white),
+                            onPressed: dimmed
+                                ? () {
+                                    showModernSnackBar(context, 'تم نفاذ الكمية ⚠️', color: Colors.grey, icon: Icons.warning_amber_rounded);
+                                  }
+                                : () async {
+                                    final connectivityResult = await Connectivity().checkConnectivity();
+                                    if (connectivityResult.contains(ConnectivityResult.none)) {
+                                      showModernSnackBar(context, 'يرجى التحقق من اتصال الإنترنت للطلب 🌐', color: Colors.redAccent, icon: Icons.wifi_off);
+                                      return;
+                                    }
+                                    
+                                    FlyAnimation.run(
+                                      context,
+                                      cartKey: widget.cartKey,
+                                      buttonContext: btnContext,
+                                      imageUrl: item.imageUrl,
+                                      onComplete: () {
+                                        CartProvider.of(context).add(item);
+                                      },
+                                    );
+                                  },
+                          );
+                        }
                       ),
                     ),
                   ],
@@ -889,16 +910,15 @@ class _CategoryPageState extends State<_CategoryPage>
           // أظهر الصورة إذا كانت صالحة
           return ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            child: Image.network(
-              link!,
+            child: CachedNetworkImage(
+              imageUrl: link!,
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
+              errorWidget: (context, url, error) {
                 return _buildPlaceholderWidget(theme);
               },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
+              placeholder: (context, url) {
                 return Stack(
                   alignment: Alignment.center,
                   children: [

@@ -4,6 +4,8 @@ import '../core/profile.dart';
 import '../core/repos/profile_repository.dart';
 import '../core/storage.dart';
 
+import '../screens/login_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -52,16 +54,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _logout() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('تم تسجيل الخروج')));
+  Future<void> _logout() async {
+    await Storage.clearUser();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
-  void _delete() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('تم حذف الحساب')));
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الحساب نهائياً'),
+        content: const Text(
+          'هل أنت متأكد من أنك تريد حذف حسابك؟ هذا الإجراء لا يمكن التراجع عنه وسيتم مسح جميع بياناتك.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('حذف الحساب'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (!mounted) return;
+
+      // إظهار مؤشر تحميل
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      try {
+        final profile = ProfileProvider.of(context);
+        final repo = ProfileRepository();
+
+        // حذف من قاعدة البيانات
+        await repo.delete(profile.phone);
+
+        // حذف من التخزين المحلي
+        await Storage.clearUser();
+
+        if (!mounted) return;
+        Navigator.pop(context); // إغلاق مؤشر التحميل
+
+        // الانتقال لشاشة تسجيل الدخول
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.pop(context); // إغلاق مؤشر التحميل
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء الحذف: $e')));
+      }
+    }
   }
 
   @override
@@ -104,20 +163,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // لون خلفية داكن فاخر
-    final backgroundColor = const Color(0xFF121212);
-    // لون أفتح قليلاً للبطاقات
-    final cardColor = const Color(0xFF1E1E1E);
-    // لون الحقول
-    final inputColor = const Color(0xFF2C2C2C);
+    // استبدال الألوان الثابتة بألوان من الثيم
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    // لون البطاقات من الثيم
+    final cardColor = Theme.of(context).cardColor;
+    // لون الحقول يعتمد على الثيم مع لمسة تمييز (لون باهت من اللون الأساسي)
+    final inputColor = cs.primary.withOpacity(0.08);
 
     return Scaffold(
       backgroundColor: backgroundColor,
       // جعلنا الـ AppBar شفافاً لدمج التصميم
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'الملف الشخصي',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -193,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: cs.onSurface,
                           ),
                     ),
                   ),
@@ -204,9 +263,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _phoneController.text.isNotEmpty
                           ? _phoneController.text
                           : '',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.white60),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurface.withOpacity(0.6),
+                      ),
                     ),
                   ),
                 ],
@@ -388,11 +447,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white), // لون النص المدخل
+      style: TextStyle(color: cs.onSurface), // لون النص المدخل
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-        prefixIcon: Icon(icon, color: cs.primary.withOpacity(0.8)),
+        labelStyle: TextStyle(color: cs.onSurface.withOpacity(0.6)),
+        prefixIcon: Icon(icon, color: cs.primary),
         filled: true,
         fillColor: inputColor,
         contentPadding: const EdgeInsets.symmetric(
@@ -405,11 +464,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+          borderSide: BorderSide(color: cs.outline.withOpacity(0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: cs.primary, width: 1.5),
+          borderSide: BorderSide(color: cs.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

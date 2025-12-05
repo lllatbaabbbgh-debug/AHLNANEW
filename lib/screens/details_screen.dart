@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/food_item.dart';
 import '../widgets/elastic_button.dart';
 import '../core/cart.dart';
+import '../core/ui_utils.dart';
 
 class DetailsScreen extends StatefulWidget {
   final FoodItem item;
@@ -64,16 +67,13 @@ class _DetailsScreenState extends State<DetailsScreen>
                         height: MediaQuery.of(context).size.width * 0.58,
                         decoration: const BoxDecoration(shape: BoxShape.circle),
                         clipBehavior: Clip.antiAlias,
-                        child: Image.network(
-                          widget.item.imageUrl,
+                        child: CachedNetworkImage(
+                          imageUrl: widget.item.imageUrl,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          },
-                          errorBuilder: (context, error, stack) {
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          errorWidget: (context, url, error) {
                             return Container(
                               color: Colors.black26,
                               child: const Center(
@@ -128,7 +128,13 @@ class _DetailsScreenState extends State<DetailsScreen>
                         Expanded(
                           child: ElasticButton(
                             onPressed: widget.item.isAvailable
-                                ? () {
+                                ? () async {
+                                    final connectivityResult = await Connectivity().checkConnectivity();
+                                    if (connectivityResult.contains(ConnectivityResult.none)) {
+                                      showModernSnackBar(context, 'يرجى التحقق من اتصال الإنترنت للطلب 🌐', color: Colors.redAccent, icon: Icons.wifi_off);
+                                      return;
+                                    }
+
                                     final qty =
                                         int.tryParse(_qtyController.text) ?? 1;
                                     final finalQty = qty < 1 ? 1 : qty;

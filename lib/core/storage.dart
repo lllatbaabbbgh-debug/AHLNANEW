@@ -63,4 +63,12 @@ class Storage {
     final p = await SharedPreferences.getInstance();
     return p.getString(_kSupabaseSvc) ?? '';
   }
+
+  static Future<void> clearUser() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_kRegistered);
+    await p.remove(_kName);
+    await p.remove(_kPhone);
+    await p.remove(_kAddress);
+  }
 }

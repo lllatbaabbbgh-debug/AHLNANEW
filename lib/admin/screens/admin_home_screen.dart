@@ -72,15 +72,54 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     setState(() => orders = list);
   }
 
+  void _showModernSnackBar(String message, Color color, IconData icon) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        // توسيط الإشعار
+        margin: EdgeInsets.only(
+          bottom: 50,
+          left: MediaQuery.of(context).size.width > 600
+              ? MediaQuery.of(context).size.width * 0.35
+              : 50,
+          right: MediaQuery.of(context).size.width > 600
+              ? MediaQuery.of(context).size.width * 0.35
+              : 50,
+        ),
+        elevation: 6,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   // الدوال المنطقية (نفسها لم تتغير)
   void _approve(int idx) async {
     final id = orders[idx].id;
     try {
       await repo.setStatus(id, 'cooking');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('جاري التحضير 👨‍🍳')));
+        _showModernSnackBar('جاري التحضير 👨‍🍳', Colors.blueAccent, Icons.outdoor_grill);
       }
     } catch (e) {
       /*...*/
@@ -94,9 +133,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     try {
       await repo.deleteOrder(id);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('تم الإلغاء ❌')));
+        _showModernSnackBar('تم الإلغاء ❌', Colors.redAccent, Icons.cancel);
       }
     } catch (e) {
       /*...*/
@@ -110,9 +147,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     try {
       await repo.setStatus(id, 'completed');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('تم تسليم الطلب ✅')));
+        _showModernSnackBar('تم تسليم الطلب ✅', primaryColor, Icons.check_circle);
       }
     } catch (e) {
       /*...*/
@@ -131,9 +166,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('تعذر فتح الاتصال')));
+        _showModernSnackBar('تعذر فتح الاتصال 📞', Colors.grey, Icons.phone_disabled);
       }
     }
   }
@@ -173,17 +206,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         mode: LaunchMode.externalApplication,
                       );
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم فتح الملاحة')),
-                        );
+                        _showModernSnackBar('تم فتح الملاحة 🗺️', Colors.blue, Icons.navigation);
                       }
                     } catch (_) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('تعذر فتح تطبيق الخرائط'),
-                          ),
-                        );
+                        _showModernSnackBar('تعذر فتح تطبيق الخرائط ⚠️', Colors.orange, Icons.error_outline);
                       }
                     }
                   },
@@ -200,15 +227,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         mode: LaunchMode.externalApplication,
                       );
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم فتح الملاحة')),
-                        );
+                        _showModernSnackBar('تم فتح الملاحة 🗺️', Colors.green, Icons.public);
                       }
                     } catch (_) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تعذر فتح المتصفح')),
-                        );
+                        _showModernSnackBar('تعذر فتح المتصفح ⚠️', Colors.orange, Icons.error_outline);
                       }
                     }
                   },
@@ -251,17 +274,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           await launchUrl(uri, mode: LaunchMode.platformDefault);
         }
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('تم فتح الملاحة')));
+          _showModernSnackBar('تم فتح الملاحة 🗺️', Colors.blue, Icons.map);
         }
         return;
       }
     }
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('تعذر فتح تطبيق الخرائط')));
+      _showModernSnackBar('تعذر فتح تطبيق الخرائط ⚠️', Colors.orange, Icons.error_outline);
     }
   }
 
@@ -321,24 +340,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-            int crossAxisCount = widget.compactMobile
-                ? 1
-                : (isDesktop
-                    ? 5
-                    : (constraints.maxWidth > 700
-                        ? 2
-                        : 1));
-            double childAspectRatio = widget.compactMobile
-                ? 1.0
-                : (isDesktop ? 1.0 : 1.05);
-
             return GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 300,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: childAspectRatio,
+                childAspectRatio: 0.7, 
               ),
               itemCount: orders.length,
               itemBuilder: (context, index) {

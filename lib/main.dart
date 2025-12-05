@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'core/storage.dart';
 import 'core/supabase_client.dart';
 import 'screens/login_screen.dart';
@@ -10,6 +11,10 @@ import 'core/profile.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox('food_cache');
+  await Hive.openBox('offers_cache');
+  
   await SupabaseManager.init();
   final showLogin = !(await Storage.isRegistered());
   final initialProfile = await Storage.loadProfile();

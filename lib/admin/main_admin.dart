@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:local_notifier/local_notifier.dart';
+import 'package:window_manager/window_manager.dart';
 import '../core/supabase_client.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/admin_menu_screen.dart';
@@ -10,6 +12,29 @@ import 'screens/admin_offers_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseManager.init();
+
+  if (Platform.isWindows) {
+    await windowManager.ensureInitialized();
+
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 720),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+
+    await localNotifier.setup(
+      appName: 'Ahlna Daquq Admin',
+      shortcutPolicy: ShortcutPolicy.requireCreate,
+    );
+  }
+
   runApp(const AhlnaAdminApp());
 }
 
