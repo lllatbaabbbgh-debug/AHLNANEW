@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/storage.dart';
 import 'core/supabase_client.dart';
@@ -11,7 +12,9 @@ import 'core/cart.dart';
 import 'core/profile.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  
   await Hive.initFlutter();
   await Hive.openBox('food_cache');
   await Hive.openBox('offers_cache');
@@ -20,6 +23,11 @@ Future<void> main() async {
   final showLogin = !(await Storage.isRegistered());
   final initialProfile = await Storage.loadProfile();
   final themeController = ThemeController();
+
+  // Add 0.5s delay before removing splash screen
+  await Future.delayed(const Duration(milliseconds: 500));
+  FlutterNativeSplash.remove();
+
   runApp(
     AhlnaDaquqApp(
       showLoginFirst: showLogin, 
