@@ -106,7 +106,7 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: false
   ios: true
   image_path: "assets/logo.PNG"
   image_path_ios: "assets/logo.PNG"
