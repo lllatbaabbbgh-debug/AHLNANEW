@@ -324,10 +324,13 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final list = byCat(selected);
-    return Row(
-      children: [
-        SizedBox(
-          width: 240,
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 240,
           child: ListView(
             children: categories.map((c) {
               final sel = c == selected;
@@ -480,6 +483,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
           ),
         ),
       ],
-    );
+    ),
+  );
   }
 }

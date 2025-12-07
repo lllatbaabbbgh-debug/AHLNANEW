@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/supabase_client.dart';
@@ -11,6 +12,12 @@ import 'screens/admin_offers_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Hive
+  await Hive.initFlutter();
+  await Hive.openBox('food_cache');
+  // await Hive.openBox('offers_cache'); // Uncomment if needed later
+
   await SupabaseManager.init();
 
   if (Platform.isWindows) {
@@ -134,10 +141,7 @@ class _AdminRootState extends State<AdminRoot> {
         ),
         body: const Padding(
           padding: EdgeInsets.all(16.0),
-          child: AdminHomeScreen(
-            restrictActions: true,
-            compactMobile: true,
-          ),
+          child: AdminHomeScreen(restrictActions: true, compactMobile: true),
         ),
       );
     }
@@ -282,7 +286,7 @@ class _AdminRootState extends State<AdminRoot> {
               ),
               body: Padding(
                 padding: const EdgeInsets.all(20.0),
-                child: screens[_index],
+                child: IndexedStack(index: _index, children: screens),
               ),
             ),
           ),
