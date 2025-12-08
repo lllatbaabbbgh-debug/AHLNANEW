@@ -4,6 +4,9 @@ import 'dart:io';
 import '../../core/supabase_client.dart';
 import '../../models/food_item.dart';
 import '../../core/repos/food_repository.dart';
+import '../../core/repos/category_repository.dart';
+import '../../models/category_model.dart';
+import 'admin_categories_screen.dart';
 
 class AdminMenuScreen extends StatefulWidget {
   const AdminMenuScreen({super.key});
@@ -15,41 +18,56 @@ class AdminMenuScreen extends StatefulWidget {
 class _AdminMenuScreenState extends State<AdminMenuScreen> {
   late List<FoodItem> items;
   final repo = FoodRepository();
-  final List<String> categories = const ['Lahm Bi Ajeen', 'Pizza', 'Drinks'];
-  final Map<String, String> categoryAr = const {
-    'Lahm Bi Ajeen': 'لحم بعجين',
-    'Pizza': 'بيتزا',
-    'Drinks': 'مشروبات',
-  };
-  String selected = 'Lahm Bi Ajeen';
+  final catRepo = CategoryRepository();
+  
+  List<CategoryModel> _allCategories = [];
+  String? selectedCategory;
 
   @override
   void initState() {
     super.initState();
     items = [];
-    _loadAll();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final cats = await catRepo.getAllCategories();
+    // If empty, use defaults (fallback)
+    if (cats.isEmpty) {
+       _allCategories = [
+         const CategoryModel(id: 1, nameEn: 'Lahm Bi Ajeen', nameAr: 'لحم بعجين'),
+         const CategoryModel(id: 2, nameEn: 'Pizza', nameAr: 'بيتزا'),
+         const CategoryModel(id: 3, nameEn: 'Drinks', nameAr: 'مشروبات'),
+       ];
+    } else {
+      _allCategories = cats;
+    }
+    
+    if (_allCategories.isNotEmpty) {
+      selectedCategory = _allCategories.first.nameEn;
+    }
+    
+    await _loadAllItems();
   }
 
   List<FoodItem> byCat(String c) =>
       items.where((e) => e.category == c).toList();
 
-  Future<void> _loadCategory() async {
-    final fetched = await repo.fetchByCategory(selected);
-    setState(() {
-      items.removeWhere((e) => e.category == selected);
-      items.addAll(fetched);
-    });
-  }
-
-  Future<void> _loadAll() async {
+  Future<void> _loadAllItems() async {
     final all = <FoodItem>[];
-    for (final c in categories) {
-      final fetched = await repo.fetchByCategory(c);
-      all.addAll(fetched);
+    // We only fetch items for leaf categories or all categories?
+    // Let's fetch for all to be safe
+    for (final c in _allCategories) {
+      try {
+        final fetched = await repo.fetchByCategory(c.nameEn);
+        all.addAll(fetched);
+      } catch (_) {}
     }
-    setState(() {
-      items = all;
-    });
+    if (mounted) {
+      setState(() {
+        items = all;
+      });
+    }
   }
 
   void _addItem() {
@@ -57,6 +75,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     final priceCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final imageCtrl = TextEditingController();
+    String? dialogSelectedCat = selectedCategory;
     bool uploading = false;
     Future<void> pickAndUpload() async {
       final res = await FilePicker.platform.pickFiles(
@@ -98,16 +117,16 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                   child: Column(
                     children: [
                       DropdownButtonFormField<String>(
-                        initialValue: selected,
-                        items: categories
+                        initialValue: dialogSelectedCat,
+                        items: _allCategories
                             .map(
                               (c) => DropdownMenuItem(
-                                value: c,
-                                child: Text(categoryAr[c]!),
+                                value: c.nameEn,
+                                child: Text('${c.nameAr} (${c.nameEn})'),
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => selected = v ?? selected,
+                        onChanged: (v) => dialogSelectedCat = v ?? dialogSelectedCat,
                         decoration: const InputDecoration(labelText: 'القسم'),
                       ),
                       TextField(
@@ -161,6 +180,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
+                    if (dialogSelectedCat == null) return;
                     final price = double.tryParse(priceCtrl.text) ?? 0;
                     final newItem = FoodItem(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -168,12 +188,12 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                       price: price,
                       description: descCtrl.text,
                       imageUrl: imageCtrl.text,
-                      category: selected,
+                      category: dialogSelectedCat!,
                       isAvailable: isActive,
                     );
                     setState(() => items.add(newItem));
                     await repo.add(newItem);
-                    await _loadCategory();
+                    await _loadAllItems();
                     if (!context.mounted) return;
                     Navigator.pop(context);
                   },
@@ -308,7 +328,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                     }
                     if (!context.mounted) return;
                     Navigator.pop(context);
-                    await _loadCategory();
+                    await _loadAllItems();
                   },
                   child: const Text('حفظ'),
                 ),
@@ -323,7 +343,10 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final list = byCat(selected);
+    final list = selectedCategory == null ? <FoodItem>[] : byCat(selectedCategory!);
+    
+    final parents = _allCategories.where((c) => c.parentId == null).toList();
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Row(
@@ -331,47 +354,80 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
         children: [
           SizedBox(
             width: 240,
-          child: ListView(
-            children: categories.map((c) {
-              final sel = c == selected;
-              return ListTile(
-                title: Text(categoryAr[c]!),
-                selected: sel,
-                onTap: () async {
-                  setState(() => selected = c);
-                  await _loadCategory();
-                },
-              );
-            }).toList(),
-          ),
-        ),
-        Expanded(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+            child: ListView(
+              children: parents.map((p) {
+                final children = _allCategories.where((c) => c.parentId == p.id).toList();
+                if (children.isEmpty) {
+                   return ListTile(
+                    title: Text(p.nameAr),
+                    selected: selectedCategory == p.nameEn,
+                    onTap: () async {
+                      setState(() => selectedCategory = p.nameEn);
+                    },
+                  );
+                }
+                return ExpansionTile(
+                  title: Text(p.nameAr),
+                  initiallyExpanded: true,
                   children: [
-                    ElevatedButton(
-                      onPressed: _addItem,
-                      child: const Text('إضافة صنف'),
+                     ListTile(
+                      title: Text('الكل في ${p.nameAr}'),
+                      selected: selectedCategory == p.nameEn,
+                      onTap: () => setState(() => selectedCategory = p.nameEn),
                     ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: _loadCategory,
-                      child: const Text('مزامنة من القاعدة'),
-                    ),
-                    const SizedBox(width: 12),
+                    ...children.map((child) => ListTile(
+                      title: Text(child.nameAr),
+                      contentPadding: const EdgeInsets.only(right: 32),
+                      selected: selectedCategory == child.nameEn,
+                      onTap: () => setState(() => selectedCategory = child.nameEn),
+                    )),
                   ],
-                ),
-              ),
-              Expanded(
-                child: ListView.separated(
+                );
+              }).toList(),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Padding(
                   padding: const EdgeInsets.all(16),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final it = list[index];
+                  child: Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _addItem,
+                        child: const Text('إضافة صنف'),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton(
+                        onPressed: _loadData,
+                        child: const Text('مزامنة'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.category),
+                        label: const Text('إدارة الأقسام'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () async {
+                           await Navigator.push(
+                             context,
+                             MaterialPageRoute(builder: (_) => const AdminCategoriesScreen()),
+                           );
+                           _loadData();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final it = list[index];
                     return Container(
                       decoration: BoxDecoration(
                         color: cs.surface,
@@ -428,7 +484,7 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                                   );
                                 } else {
                                   print('✅ Database update completed');
-                                  await _loadCategory();
+                                  await _loadAllItems();
                                 }
                               },
                             ),

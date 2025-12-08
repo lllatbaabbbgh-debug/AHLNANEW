@@ -116,7 +116,7 @@ class _AdminRootState extends State<AdminRoot> {
     final theme = Theme.of(context);
     final primaryGreen = theme.primaryColor;
 
-    final isIOS = Platform.isIOS;
+    // final isIOS = Platform.isIOS; // Removed unused variable
     final isWindows = Platform.isWindows;
     final screens = [
       const AdminHomeScreen(),

@@ -13,6 +13,9 @@ import 'settings_screen.dart';
 import 'cart_screen.dart';
 import '../core/repos/food_repository.dart';
 import '../core/repos/offers_repository.dart';
+import '../core/repos/category_repository.dart';
+import '../models/category_model.dart';
+import 'category_content.dart';
 import '../core/ui_utils.dart';
 import '../core/animations/fly_animation.dart';
 
@@ -24,49 +27,107 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final repo = FoodRepository();
-  bool _prefetched = false;
+  final catRepo = CategoryRepository();
+  // bool _prefetched = false; // Removed unused field
   final TextEditingController _searchController = TextEditingController();
   final ValueNotifier<String> _search = ValueNotifier<String>('');
 
-  static const List<String> _categories = ['Lahm Bi Ajeen', 'Pizza', 'Drinks'];
-  static const Map<String, String> _categoryAr = {
-    'Lahm Bi Ajeen': 'لحم بعجين',
-    'Pizza': 'بيتزا',
-    'Drinks': 'مشروبات',
-  };
+  List<CategoryModel> _allCategories = [];
+  List<CategoryModel> _parentCategories = [];
+  bool _loadingCategories = true;
+  final Map<int, CategoryModel?> _selectedChildForParent = {};
 
-  List<Widget> _pages = const [];
-  late TabController _tabController;
+  TabController? _tabController;
 
   final ValueNotifier<String?> _offerLink = ValueNotifier<String?>(null);
   final _offersRepo = OffersRepository();
   StreamSubscription<String?>? _offerSub;
+  CategoryModel? _selectedParent;
+  StreamSubscription<List<CategoryModel>>? _catStream;
   final GlobalKey _cartKey = GlobalKey();
   final Box _offersBox = Hive.box('offers_cache');
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _categories.length, vsync: this);
-    // تهيئة صفحات فارغة بسرعة
-    final builtPages = <Widget>[];
-    for (final c in _categories) {
-      builtPages.add(
-        _CategoryPage(
-          key: ValueKey<String>('boot-$c'),
-          category: c,
-          initialItems: const <FoodItem>[],
-          stream: repo.liveByCategory(c),
-          search: _search,
-          offerLink: _offerLink,
-          cartKey: _cartKey,
-        ),
-      );
-    }
-    _pages = builtPages;
     _initializeApp();
+    _loadCategories();
+    _subscribeCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final cats = await catRepo.getAllCategories();
+      if (mounted) {
+        setState(() {
+          if (cats.isEmpty) {
+             // Fallback
+             _allCategories = [
+               const CategoryModel(id: 1, nameEn: 'Lahm Bi Ajeen', nameAr: 'لحم بعجين'),
+               const CategoryModel(id: 2, nameEn: 'Pizza', nameAr: 'بيتزا'),
+               const CategoryModel(id: 3, nameEn: 'Drinks', nameAr: 'مشروبات'),
+             ];
+          } else {
+             _allCategories = cats;
+          }
+          _parentCategories = _allCategories.where((c) => c.parentId == null).toList();
+          _tabController = TabController(length: _parentCategories.length, vsync: this);
+          _loadingCategories = false;
+          if (_selectedParent == null && _parentCategories.isNotEmpty) {
+            _selectedParent = _parentCategories.first;
+            final children = _allCategories.where((c) => c.parentId == _selectedParent!.id).toList();
+            if (children.isNotEmpty && _selectedChildForParent[_selectedParent!.id] == null) {
+              _selectedChildForParent[_selectedParent!.id] = children.first;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
+      // Fallback
+      if (mounted) {
+        setState(() {
+          _allCategories = [
+             const CategoryModel(id: 1, nameEn: 'Lahm Bi Ajeen', nameAr: 'لحم بعجين'),
+             const CategoryModel(id: 2, nameEn: 'Pizza', nameAr: 'بيتزا'),
+             const CategoryModel(id: 3, nameEn: 'Drinks', nameAr: 'مشروبات'),
+          ];
+          _parentCategories = _allCategories;
+          _tabController = TabController(length: _parentCategories.length, vsync: this);
+          _loadingCategories = false;
+          if (_selectedParent == null && _parentCategories.isNotEmpty) {
+            _selectedParent = _parentCategories.first;
+            final children = _allCategories.where((c) => c.parentId == _selectedParent!.id).toList();
+            if (children.isNotEmpty && _selectedChildForParent[_selectedParent!.id] == null) {
+              _selectedChildForParent[_selectedParent!.id] = children.first;
+            }
+          }
+        });
+      }
+    }
+  }
+
+  void _subscribeCategories() {
+    _catStream?.cancel();
+    _catStream = catRepo.streamCategories().listen((cats) {
+      if (!mounted) return;
+      setState(() {
+        _allCategories = cats;
+        _parentCategories = _allCategories.where((c) => c.parentId == null).toList();
+        if (_selectedParent == null && _parentCategories.isNotEmpty) {
+          _selectedParent = _parentCategories.first;
+        }
+        final p = _selectedParent;
+        if (p != null) {
+          final children = _allCategories.where((c) => c.parentId == p.id).toList();
+          if (children.isNotEmpty && _selectedChildForParent[p.id] == null) {
+            _selectedChildForParent[p.id] = children.first;
+          }
+        }
+      });
+    });
   }
 
   Future<void> _initializeApp() async {
@@ -108,111 +169,124 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Future<void> _prefetchAll() async {
-    try {
-      final futures = _categories.map((c) async {
-        try {
-          final items = await repo
-              .fetchByCategory(c)
-              .timeout(const Duration(seconds: 10));
-          print(
-            '✅ تم تحميل قسم ${_categoryAr[c]} بنجاح مع ${items.length} عنصر',
-          );
-          return _CategoryPage(
-            key: ValueKey<String>(c),
-            category: c,
-            initialItems: items,
-            stream: repo.liveByCategory(c),
-            search: _search,
-            offerLink: _offerLink,
-            cartKey: _cartKey,
-          );
-        } catch (e) {
-          print('⚠️ خطأ في تحميل قسم $c: $e');
-          return _CategoryPage(
-            key: ValueKey<String>(c),
-            category: c,
-            initialItems: const [],
-            stream: const Stream<List<FoodItem>>.empty(),
-            search: _search,
-            offerLink: _offerLink,
-            cartKey: _cartKey,
-          );
-        }
-      }).toList();
+  // Future<void> _prefetchAll() async { // Removed unused method
+  //   try {
+  //     final futures = _categories.map((c) async {
+  //       try {
+  //         final items = await repo
+  //             .fetchByCategory(c)
+  //             .timeout(const Duration(seconds: 10));
+  //         print(
+  //           '✅ تم تحميل قسم ${_categoryAr[c]} بنجاح مع ${items.length} عنصر',
+  //         );
+  //         return _CategoryPage(
+  //           key: ValueKey<String>(c),
+  //           category: c,
+  //           initialItems: items,
+  //           stream: repo.liveByCategory(c),
+  //           search: _search,
+  //           offerLink: _offerLink,
+  //           cartKey: _cartKey,
+  //         );
+  //       } catch (e) {
+  //         print('⚠️ خطأ في تحميل قسم $c: $e');
+  //         return _CategoryPage(
+  //           key: ValueKey<String>(c),
+  //           category: c,
+  //           initialItems: const [],
+  //           stream: const Stream<List<FoodItem>>.empty(),
+  //           search: _search,
+  //           offerLink: _offerLink,
+  //           cartKey: _cartKey,
+  //         );
+  //       }
+  //     }).toList();
+  //
+  //     final builtPages = await Future.wait(futures);
+  //     // _pages = builtPages; // Removed unused variable
+  //     if (mounted) {
+  //       // setState(() => _prefetched = true); // Removed unused variable
+  //       print('✅ تم تحميل جميع الأقسام بالتوازي بنجاح');
+  //     }
+  //   } catch (e) {
+  //     print('❌ خطأ عام في تحميل الأقسام: $e');
+  //     if (mounted) {
+  //       // setState(() => _prefetched = true); // Removed unused variable
+  //     }
+  //   }
+  // }
 
-      final builtPages = await Future.wait(futures);
-      _pages = builtPages;
-      if (mounted) {
-        setState(() => _prefetched = true);
-        print('✅ تم تحميل جميع الأقسام بالتوازي بنجاح');
-      }
-    } catch (e) {
-      print('❌ خطأ عام في تحميل الأقسام: $e');
-      if (mounted) {
-        setState(() => _prefetched = true); // ننهي التحميل حتى لو حدث خطأ
-      }
-    }
-  }
-
-  Stream<List<FoodItem>> _streamByCategory(String c) => repo.liveByCategory(c);
+  // Stream<List<FoodItem>> _streamByCategory(String c) => repo.liveByCategory(c); // Removed unused method
 
   @override
   Widget build(BuildContext context) {
-    final cart = CartProvider.of(context);
     final theme = Theme.of(context);
+    // final isDark = theme.brightness == Brightness.dark; // Removed unused variable
+
+    if (_loadingCategories || _tabController == null) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+      );
+    }
+
+    final cart = CartController();
+    final profile = ProfileProvider.of(context);
 
     return Scaffold(
-      drawerScrimColor: Colors.transparent,
+      
       backgroundColor: theme.scaffoldBackgroundColor,
-
+      
+      // --- AppBar ---
       appBar: AppBar(
-        centerTitle: true,
+        toolbarHeight: 80,
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
-
-        // --- حقل البحث ---
-        title: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.6,
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => _search.value = v.trim(),
-              textAlign: TextAlign.right,
-              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              decoration: InputDecoration(
-                hintText: 'بحث',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                prefixIcon: Icon(Icons.search, color: theme.primaryColor),
-                suffixIcon: ValueListenableBuilder<String>(
-                  valueListenable: _search,
-                  builder: (context, q, _) {
-                    if (q.isEmpty) return const SizedBox.shrink();
-                    return IconButton(
-                      icon: const Icon(Icons.close, color: Colors.grey),
-                      onPressed: () {
-                        _searchController.clear();
-                        _search.value = '';
-                      },
-                    );
-                  },
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: theme.inputDecorationTheme.fillColor ?? Colors.white,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
-                ),
+        centerTitle: true,
+        title: Container(
+          height: 45,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: theme.inputDecorationTheme.fillColor ?? Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (val) => _search.value = val,
+            style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+            decoration: InputDecoration(
+              hintText: 'ابحث عن وجبتك المفضلة...',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+              prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+              suffixIcon: ValueListenableBuilder<String>(
+                valueListenable: _search,
+                builder: (context, val, _) {
+                  if (val.isEmpty) return const SizedBox();
+                  return IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () {
+                      _searchController.clear();
+                      _search.value = '';
+                    },
+                  );
+                },
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: theme.inputDecorationTheme.fillColor ?? Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade200),
               ),
             ),
           ),
@@ -285,20 +359,207 @@ class _HomeScreenState extends State<HomeScreen>
         ],
 
         // --- التبويبات ---
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: _categories.map((c) => Tab(text: _categoryAr[c])).toList(),
-          labelPadding: const EdgeInsets.symmetric(vertical: 10),
-          labelColor: theme.primaryColor,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: theme.primaryColor,
-          onTap: (index) {},
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: _buildTopNavBar(context),
         ),
       ),
 
       endDrawer: _buildLuxuryDrawer(context),
 
-      body: TabBarView(controller: _tabController, children: _pages),
+      body: _buildContentView(),
+    );
+  }
+
+  Widget _buildTopNavBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: _parentCategories.map((p) {
+            final isActive = _selectedParent?.id == p.id;
+            final children = _allCategories.where((c) => c.parentId == p.id).toList();
+            if (children.isNotEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: PopupMenuButton<CategoryModel>(
+                  tooltip: p.nameAr,
+                  onSelected: (c) {
+                    setState(() {
+                      _selectedParent = p;
+                      _selectedChildForParent[p.id] = c;
+                    });
+                  },
+                  itemBuilder: (context) => children
+                      .map((c) => PopupMenuItem<CategoryModel>(
+                            value: c,
+                            child: Text(c.nameAr),
+                          ))
+                      .toList(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isActive ? theme.primaryColor.withOpacity(0.12) : theme.cardColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: isActive ? theme.primaryColor : Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          p.nameAr,
+                          style: TextStyle(
+                            color: isActive ? theme.primaryColor : theme.textTheme.bodyLarge?.color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.expand_more,
+                          size: 18,
+                          color: isActive ? theme.primaryColor : Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedParent = p;
+                    _selectedChildForParent.remove(p.id);
+                  });
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isActive ? theme.primaryColor.withOpacity(0.12) : theme.cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isActive ? theme.primaryColor : Colors.grey.shade300),
+                  ),
+                  child: Text(
+                    p.nameAr,
+                    style: TextStyle(
+                      color: isActive ? theme.primaryColor : theme.textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentView() {
+    final p = _selectedParent ?? (_parentCategories.isNotEmpty ? _parentCategories.first : null);
+    if (p == null) {
+      return const SizedBox();
+    }
+    final children = _allCategories.where((c) => c.parentId == p.id).toList();
+    final current = children.isNotEmpty ? (_selectedChildForParent[p.id] ?? children.first) : p;
+    return CategoryContent(
+      key: ValueKey('cat-${current.id}'),
+      category: current.nameEn,
+      initialItems: const [],
+      stream: repo.liveByCategory(current.nameEn),
+      search: _search,
+      offerLink: _offerLink,
+      cartKey: _cartKey,
+    );
+  }
+
+  Widget _buildSubCategoryView(CategoryModel parent, List<CategoryModel> children) {
+    final selected = _selectedChildForParent[parent.id];
+    return Column(
+      children: [
+        GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.95,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: children.length,
+          itemBuilder: (context, index) {
+            final child = children[index];
+            final isSelected = selected?.id == child.id;
+            return GestureDetector(
+              onTap: () {
+                setState(() => _selectedChildForParent[parent.id] = child);
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.12) : Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (child.imageUrl != null && child.imageUrl!.isNotEmpty)
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          child: CachedNetworkImage(imageUrl: child.imageUrl!, fit: BoxFit.cover, width: double.infinity),
+                        ),
+                      )
+                    else
+                      const Expanded(child: Icon(Icons.local_pizza, size: 36)),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        child.nameAr,
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? Theme.of(context).primaryColor : null),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: selected == null
+              ? Center(child: Text('اختر قسمًا من الأعلى'))
+              : CategoryContent(
+                  key: ValueKey('cat-${selected.id}'),
+                  category: selected.nameEn,
+                  initialItems: const [],
+                  stream: repo.liveByCategory(selected.nameEn),
+                  search: _search,
+                  offerLink: _offerLink,
+                  cartKey: _cartKey,
+                ),
+        ),
+      ],
     );
   }
 
@@ -480,11 +741,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     _searchController.dispose();
     _search.dispose();
     _offerSub?.cancel();
     _offerLink.dispose();
+    _catStream?.cancel();
     super.dispose();
   }
 }
