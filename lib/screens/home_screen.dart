@@ -49,6 +49,12 @@ class _HomeScreenState extends State<HomeScreen>
   final GlobalKey _cartKey = GlobalKey();
   final Box _offersBox = Hive.box('offers_cache');
 
+  String _categoryKey(CategoryModel m) {
+    final en = m.nameEn.trim();
+    if (en.isNotEmpty) return en;
+    return m.nameAr.trim();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -473,9 +479,9 @@ class _HomeScreenState extends State<HomeScreen>
     final current = children.isNotEmpty ? (_selectedChildForParent[p.id] ?? children.first) : p;
     return CategoryContent(
       key: ValueKey('cat-${current.id}'),
-      category: current.nameEn,
+      category: _categoryKey(current),
       initialItems: const [],
-      stream: repo.liveByCategory(current.nameEn),
+      stream: repo.liveByCategory(_categoryKey(current)),
       search: _search,
       offerLink: _offerLink,
       cartKey: _cartKey,
@@ -551,9 +557,9 @@ class _HomeScreenState extends State<HomeScreen>
               ? Center(child: Text('اختر قسمًا من الأعلى'))
               : CategoryContent(
                   key: ValueKey('cat-${selected.id}'),
-                  category: selected.nameEn,
+                  category: _categoryKey(selected),
                   initialItems: const [],
-                  stream: repo.liveByCategory(selected.nameEn),
+                  stream: repo.liveByCategory(_categoryKey(selected)),
                   search: _search,
                   offerLink: _offerLink,
                   cartKey: _cartKey,
