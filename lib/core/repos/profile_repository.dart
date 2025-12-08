@@ -19,13 +19,21 @@ class ProfileRepository {
       'address': address,
       'user': user ?? phone,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'phone');
+    }, onConflict: 'user');
   }
 
   Future<Map<String, dynamic>?> getByPhone(String phone) async {
     final c = _c;
     if (c == null) return null;
     final res = await c.from(table).select().eq('phone', phone).maybeSingle();
+    if (res == null) return null;
+    return Map<String, dynamic>.from(res);
+  }
+
+  Future<Map<String, dynamic>?> getByUser(String userId) async {
+    final c = _c;
+    if (c == null) return null;
+    final res = await c.from(table).select().eq('user', userId).maybeSingle();
     if (res == null) return null;
     return Map<String, dynamic>.from(res);
   }

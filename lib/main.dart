@@ -10,6 +10,7 @@ import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'core/cart.dart';
 import 'core/profile.dart';
+import 'core/repos/profile_repository.dart';
 
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -20,8 +21,26 @@ Future<void> main() async {
   await Hive.openBox('offers_cache');
   
   await SupabaseManager.init();
-  final showLogin = !(await Storage.isRegistered());
-  final initialProfile = await Storage.loadProfile();
+  final client = SupabaseManager.client;
+  final user = client?.auth.currentUser;
+  Map<String, String>? initialProfile;
+  bool showLogin = true;
+  if (user == null) {
+    showLogin = true;
+  } else {
+    final pr = ProfileRepository();
+    final data = await pr.getByUser(user.id);
+    if (data != null) {
+      showLogin = false;
+      initialProfile = {
+        'name': (data['name'] ?? '').toString(),
+        'phone': (data['phone'] ?? '').toString(),
+        'address': (data['address'] ?? '').toString(),
+      };
+    } else {
+      showLogin = true;
+    }
+  }
   final themeController = ThemeController();
 
   // Add 0.5s delay before removing splash screen

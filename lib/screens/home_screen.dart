@@ -790,7 +790,6 @@ class _CategoryPage extends StatefulWidget {
   final GlobalKey cartKey;
 
   const _CategoryPage({
-    super.key,
     required this.category,
     required this.initialItems,
     required this.stream,

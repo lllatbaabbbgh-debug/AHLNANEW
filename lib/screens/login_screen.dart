@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/supabase_client.dart';
 import '../core/profile.dart';
 import '../core/repos/profile_repository.dart';
 import '../main.dart';
@@ -20,6 +23,10 @@ class _LoginScreenState extends State<LoginScreen>
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+
+  bool _loggedIn = false;
+  bool _showForm = false;
+  StreamSubscription<AuthState>? _authSub;
 
   // متغيرات الأنميشن
   late AnimationController _animationController;
@@ -47,6 +54,50 @@ class _LoginScreenState extends State<LoginScreen>
         );
 
     _animationController.forward();
+
+    final c = SupabaseManager.client;
+    _loggedIn = c?.auth.currentUser != null;
+    if (_loggedIn) {
+      _checkProfileAndProceed();
+    }
+    _authSub = c?.auth.onAuthStateChange.listen((event) async {
+      final session = event.session;
+      if (event.event == AuthChangeEvent.signedIn && session?.user != null) {
+        setState(() => _loggedIn = true);
+        await _checkProfileAndProceed();
+      }
+    });
+  }
+  
+  Future<void> _checkProfileAndProceed() async {
+    final c = SupabaseManager.client;
+    final u = c?.auth.currentUser;
+    if (u == null) {
+      setState(() {
+        _showForm = false;
+      });
+      return;
+    }
+    final repo = ProfileRepository();
+    final data = await repo.getByUser(u.id);
+    if (data != null) {
+      final profile = ProfileProvider.of(context);
+      profile.set(
+        name: (data['name'] ?? '').toString(),
+        phone: (data['phone'] ?? '').toString(),
+        address: (data['address'] ?? '').toString(),
+      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const RootScaffold()),
+        );
+      }
+    } else {
+      setState(() {
+        _showForm = true;
+      });
+    }
   }
 
   @override
@@ -55,11 +106,17 @@ class _LoginScreenState extends State<LoginScreen>
     _phoneController.dispose();
     _addressController.dispose();
     _animationController.dispose();
+    _authSub?.cancel();
     super.dispose();
   }
 
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
+      final user = SupabaseManager.client?.auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى تسجيل الدخول عبر Google أو Apple أولاً')));
+        return;
+      }
       final profile = ProfileProvider.of(context);
       profile.set(
         name: _nameController.text.trim(),
@@ -71,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen>
         phone: profile.phone,
         name: profile.name,
         address: profile.address,
-        user: profile.phone,
+        user: user.id,
       );
       Storage.saveProfile(
         name: profile.name,
@@ -188,6 +245,40 @@ class _LoginScreenState extends State<LoginScreen>
                       key: _formKey,
                       child: Column(
                         children: [
+                          if (!_loggedIn) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final client = SupabaseManager.client;
+                                      await client?.auth.signInWithOAuth(OAuthProvider.google);
+                                    },
+                                    icon: const Icon(Icons.login),
+                                    label: const Text('تسجيل الدخول بواسطة Google'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final client = SupabaseManager.client;
+                                      await client?.auth.signInWithOAuth(OAuthProvider.apple);
+                                    },
+                                    icon: const Icon(Icons.apple),
+                                    label: const Text('تسجيل الدخول بواسطة Apple'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            const Text('يرجى تسجيل الدخول عبر Google أو Apple للمتابعة'),
+                          ],
+                          if (_loggedIn && _showForm) ...[
                           _buildFixedColorField(
                             controller: _nameController,
                             label: 'اسمك الكريم',
@@ -237,6 +328,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ),
                           ),
+                          ],
                         ],
                       ),
                     ),
@@ -295,6 +387,11 @@ class _LoginScreenState extends State<LoginScreen>
       ),
       validator: (v) {
         if (v == null || v.trim().isEmpty) return 'هذا الحقل مطلوب';
+        if (isPhone) {
+          final s = v.trim();
+          final ok = RegExp(r'^07\d{9}$').hasMatch(s);
+          if (!ok) return 'رقم الهاتف يجب أن يبدأ بـ 07 ويكون 11 رقمًا';
+        }
         return null;
       },
     );
