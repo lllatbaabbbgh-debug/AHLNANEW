@@ -236,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
     }
 
-    final cart = CartController();
+    final cart = CartProvider.of(context);
     final profile = ProfileProvider.of(context);
 
     return Scaffold(
@@ -314,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen>
                     key: _cartKey,
                     icon: Icon(
                       Icons.shopping_cart_outlined,
-                      color: hasItems ? theme.primaryColor : theme.iconTheme.color,
+                      color: hasItems ? Colors.redAccent : theme.iconTheme.color,
                       size: 28,
                     ),
                     onPressed: () {
