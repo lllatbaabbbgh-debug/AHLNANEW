@@ -170,3 +170,36 @@ CREATE POLICY IF NOT EXISTS "anon_update_order_items" ON public.order_items
     FOR UPDATE TO anon USING (true) WITH CHECK (true);
 CREATE POLICY IF NOT EXISTS "anon_delete_order_items" ON public.order_items
     FOR DELETE TO anon USING (true);
+
+-- 14. جدول الملف الشخصي (Profiles)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    user TEXT PRIMARY KEY,
+    phone TEXT UNIQUE,
+    name TEXT,
+    address TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE POLICY IF NOT EXISTS "auth_read_own_profile" ON public.profiles
+    FOR SELECT TO authenticated USING (user = auth.uid());
+
+CREATE POLICY IF NOT EXISTS "auth_upsert_own_profile" ON public.profiles
+    FOR INSERT TO authenticated WITH CHECK (user = auth.uid());
+
+CREATE POLICY IF NOT EXISTS "auth_update_own_profile" ON public.profiles
+    FOR UPDATE TO authenticated USING (user = auth.uid()) WITH CHECK (user = auth.uid());
+
+CREATE POLICY IF NOT EXISTS "anon_upsert_profiles" ON public.profiles
+    FOR INSERT TO anon WITH CHECK (user = phone AND phone IS NOT NULL);
+
+CREATE POLICY IF NOT EXISTS "anon_update_profiles" ON public.profiles
+    FOR UPDATE TO anon USING (user = phone) WITH CHECK (user = phone);
+
+CREATE POLICY IF NOT EXISTS "anon_select_profiles" ON public.profiles
+    FOR SELECT TO anon USING (true);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
