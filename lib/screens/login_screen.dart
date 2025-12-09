@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_client.dart';
@@ -252,7 +253,10 @@ class _LoginScreenState extends State<LoginScreen>
                                   child: ElevatedButton.icon(
                                     onPressed: () async {
                                       final client = SupabaseManager.client;
-                                      await client?.auth.signInWithOAuth(OAuthProvider.google);
+                                      await client?.auth.signInWithOAuth(
+                                        OAuthProvider.google,
+                                        redirectTo: kIsWeb ? null : 'io.supabase.flutterquickstart://login-callback/',
+                                      );
                                     },
                                     icon: const Icon(Icons.login),
                                     label: const Text('تسجيل الدخول بواسطة Google'),
@@ -267,7 +271,10 @@ class _LoginScreenState extends State<LoginScreen>
                                   child: OutlinedButton.icon(
                                     onPressed: () async {
                                       final client = SupabaseManager.client;
-                                      await client?.auth.signInWithOAuth(OAuthProvider.apple);
+                                      await client?.auth.signInWithOAuth(
+                                        OAuthProvider.apple,
+                                        redirectTo: kIsWeb ? null : 'io.supabase.flutterquickstart://login-callback/',
+                                      );
                                     },
                                     icon: const Icon(Icons.apple),
                                     label: const Text('تسجيل الدخول بواسطة Apple'),
