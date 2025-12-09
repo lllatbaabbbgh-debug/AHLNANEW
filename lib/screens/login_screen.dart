@@ -57,15 +57,36 @@ class _LoginScreenState extends State<LoginScreen>
 
     _animationController.forward();
 
+    _initAuthFlow();
+  }
+
+  Future<void> _initAuthFlow() async {
     final c = SupabaseManager.client;
     _loggedIn = c?.auth.currentUser != null;
+    final registered = await Storage.isRegistered();
     if (_loggedIn) {
-      _checkProfileAndProceed();
-    } else {
-      setState(() {
-        _showForm = true;
-      });
+      await _checkProfileAndProceed();
+      return;
     }
+    if (registered) {
+      final local = await Storage.loadProfile();
+      final profile = ProfileProvider.of(context);
+      profile.set(
+        name: (local['name'] ?? '').toString(),
+        phone: (local['phone'] ?? '').toString(),
+        address: (local['address'] ?? '').toString(),
+      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const RootScaffold()),
+        );
+      }
+      return;
+    }
+    setState(() {
+      _showForm = true;
+    });
     _authSub = c?.auth.onAuthStateChange.listen((event) async {
       final session = event.session;
       if (event.event == AuthChangeEvent.signedIn && session?.user != null) {
@@ -79,6 +100,23 @@ class _LoginScreenState extends State<LoginScreen>
     final c = SupabaseManager.client;
     final u = c?.auth.currentUser;
     if (u == null) {
+      final registered = await Storage.isRegistered();
+      if (registered) {
+        final local = await Storage.loadProfile();
+        final profile = ProfileProvider.of(context);
+        profile.set(
+          name: (local['name'] ?? '').toString(),
+          phone: (local['phone'] ?? '').toString(),
+          address: (local['address'] ?? '').toString(),
+        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const RootScaffold()),
+          );
+        }
+        return;
+      }
       setState(() {
         _showForm = true;
       });

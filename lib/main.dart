@@ -26,7 +26,18 @@ Future<void> main() async {
   Map<String, String>? initialProfile;
   bool showLogin = true;
   if (user == null) {
-    showLogin = true;
+    final registered = await Storage.isRegistered();
+    if (registered) {
+      final local = await Storage.loadProfile();
+      initialProfile = {
+        'name': (local['name'] ?? '').toString(),
+        'phone': (local['phone'] ?? '').toString(),
+        'address': (local['address'] ?? '').toString(),
+      };
+      showLogin = false;
+    } else {
+      showLogin = true;
+    }
   } else {
     final pr = ProfileRepository();
     final data = await pr.getByUser(user.id);
@@ -38,7 +49,18 @@ Future<void> main() async {
         'address': (data['address'] ?? '').toString(),
       };
     } else {
-      showLogin = true;
+      final registered = await Storage.isRegistered();
+      if (registered) {
+        final local = await Storage.loadProfile();
+        initialProfile = {
+          'name': (local['name'] ?? '').toString(),
+          'phone': (local['phone'] ?? '').toString(),
+          'address': (local['address'] ?? '').toString(),
+        };
+        showLogin = false;
+      } else {
+        showLogin = true;
+      }
     }
   }
   final themeController = ThemeController();

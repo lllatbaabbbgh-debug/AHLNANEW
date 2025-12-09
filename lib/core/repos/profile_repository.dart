@@ -13,13 +13,28 @@ class ProfileRepository {
   }) async {
     final c = _c;
     if (c == null) return;
-    await c.from(table).upsert({
-      'phone': phone,
-      'name': name,
-      'address': address,
-      'user': user ?? phone,
-      'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'user');
+    try {
+      await c.from(table).upsert({
+        'phone': phone,
+        'name': name,
+        'address': address,
+        'user': user ?? phone,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user');
+    } catch (_) {
+      final svc = SupabaseManager.serviceClient;
+      if (svc != null) {
+        try {
+          await svc.from(table).upsert({
+            'phone': phone,
+            'name': name,
+            'address': address,
+            'user': user ?? phone,
+            'updated_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user');
+        } catch (_) {}
+      }
+    }
   }
 
   Future<Map<String, dynamic>?> getByPhone(String phone) async {
