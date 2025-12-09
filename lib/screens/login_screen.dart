@@ -61,6 +61,10 @@ class _LoginScreenState extends State<LoginScreen>
     _loggedIn = c?.auth.currentUser != null;
     if (_loggedIn) {
       _checkProfileAndProceed();
+    } else {
+      setState(() {
+        _showForm = true;
+      });
     }
     _authSub = c?.auth.onAuthStateChange.listen((event) async {
       final session = event.session;
@@ -76,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen>
     final u = c?.auth.currentUser;
     if (u == null) {
       setState(() {
-        _showForm = false;
+        _showForm = true;
       });
       return;
     }
@@ -115,10 +119,6 @@ class _LoginScreenState extends State<LoginScreen>
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
       final user = SupabaseManager.client?.auth.currentUser;
-      if (user == null && !(Platform.isIOS && !kIsWeb)) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى تسجيل الدخول عبر Google أو Apple أولاً')));
-        return;
-      }
       final profile = ProfileProvider.of(context);
       profile.set(
         name: _nameController.text.trim(),
@@ -247,46 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
                       key: _formKey,
                       child: Column(
                         children: [
-                          if (!(Platform.isIOS && !kIsWeb) && !_loggedIn) ...[
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      final client = SupabaseManager.client;
-                                      await client?.auth.signInWithOAuth(
-                                        OAuthProvider.google,
-                                        redirectTo: kIsWeb ? null : 'io.supabase.flutterquickstart://login-callback/',
-                                      );
-                                    },
-                                    icon: const Icon(Icons.login),
-                                    label: const Text('تسجيل الدخول بواسطة Google'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () async {
-                                      final client = SupabaseManager.client;
-                                      await client?.auth.signInWithOAuth(
-                                        OAuthProvider.apple,
-                                        redirectTo: kIsWeb ? null : 'io.supabase.flutterquickstart://login-callback/',
-                                      );
-                                    },
-                                    icon: const Icon(Icons.apple),
-                                    label: const Text('تسجيل الدخول بواسطة Apple'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            const Text('يرجى تسجيل الدخول عبر Google أو Apple للمتابعة'),
-                          ],
-                          if ((Platform.isIOS && !kIsWeb) || (_loggedIn && _showForm)) ...[
+                          if (_showForm) ...[
                           _buildFixedColorField(
                             controller: _nameController,
                             label: 'اسمك الكريم',
