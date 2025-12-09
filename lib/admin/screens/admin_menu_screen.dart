@@ -191,8 +191,15 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                       category: dialogSelectedCat!,
                       isAvailable: isActive,
                     );
-                    setState(() => items.add(newItem));
-                    await repo.add(newItem);
+                    final ok = await repo.add(newItem);
+                    if (!ok) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('تعذر حفظ الصنف')),
+                        );
+                      }
+                      return;
+                    }
                     await _loadAllItems();
                     if (!context.mounted) return;
                     Navigator.pop(context);

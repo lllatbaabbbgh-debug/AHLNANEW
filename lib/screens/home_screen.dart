@@ -18,6 +18,8 @@ import '../models/category_model.dart';
 import 'category_content.dart';
 import '../core/ui_utils.dart';
 import '../core/animations/fly_animation.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -679,7 +681,7 @@ class _HomeScreenState extends State<HomeScreen>
                   title: 'عنواننا',
                   onTap: () {
                     Navigator.pop(context);
-                    showModernSnackBar(context, 'كركوك - داقوق - الشارع العام', icon: Icons.location_on);
+                    showModernSnackBar(context, 'كركوك - داقوق مقابيل متنزة داقوق', icon: Icons.location_on);
                   },
                 ),
                 const SizedBox(height: 10),
@@ -698,13 +700,21 @@ class _HomeScreenState extends State<HomeScreen>
                 const SizedBox(height: 10),
                 const Divider(),
                 const SizedBox(height: 10),
-                _buildMenuItem(
-                  context,
-                  icon: Icons.info_outline_rounded,
-                  title: 'حول التطبيق',
-                  onTap: () => Navigator.pop(context),
-                ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _showAboutDialog,
+                icon: const Icon(Icons.info_outline_rounded),
+                label: const Text('حول التطبيق'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
             ),
           ),
         ],
@@ -742,6 +752,115 @@ class _HomeScreenState extends State<HomeScreen>
         onTap: onTap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+    );
+  }
+
+  void _showAboutDialog() async {
+    final cs = Theme.of(context).colorScheme;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: cs.surface,
+          title: const Text('حول التطبيق'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('هذا التطبيق تم تطويره وبرمجته بالكامل من قبل المطوّر: حسين ناصر.'),
+                SizedBox(height: 8),
+                Text('تم تصميم التطبيق بعناية لتقديم أفضل تجربة للمستخدم، مع التركيز على السهولة والسرعة والدقة في عرض المحتوى.'),
+                SizedBox(height: 8),
+                Text('يتم تحديث التطبيق وتحسينه بشكل مستمر لضمان أداء أفضل وتوفير مزايا جديدة تلائم احتياجات المستخدمين.'),
+                SizedBox(height: 8),
+                Text('حقوق الملكية محفوظة © 2025 – حسين ناصر'),
+                SizedBox(height: 8),
+                Text('جميع حقوق التصميم والبرمجة والتطوير محفوظة ولا يسمح بإعادة نشر التطبيق أو تعديله دون إذن.'),
+                SizedBox(height: 12),
+                Text('للتواصل'),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Instagram',
+                  onPressed: () async {
+                    final uri = Uri.parse('https://www.instagram.com/ev2m/');
+                    try {
+                      final ok = await launchUrl(
+                        uri,
+                        mode: (Platform.isAndroid || Platform.isIOS)
+                            ? LaunchMode.externalApplication
+                            : LaunchMode.platformDefault,
+                      );
+                      if (!ok) {
+                        final fallbackOk = await launchUrl(uri);
+                        if (!fallbackOk) {
+                          showModernSnackBar(
+                            context,
+                            'تعذر فتح إنستقرام',
+                            color: Colors.orange,
+                            icon: Icons.error_outline,
+                          );
+                        }
+                      }
+                    } catch (_) {
+                      showModernSnackBar(
+                        context,
+                        'تعذر فتح إنستقرام',
+                        color: Colors.orange,
+                        icon: Icons.error_outline,
+                      );
+                    }
+                  },
+                  icon: const FaIcon(FontAwesomeIcons.instagram),
+                ),
+                IconButton(
+                  tooltip: 'Facebook',
+                  onPressed: () async {
+                    final uri = Uri.parse('https://www.facebook.com/abu.ghada.785116?locale=ar_AR');
+                    try {
+                      final ok = await launchUrl(
+                        uri,
+                        mode: (Platform.isAndroid || Platform.isIOS)
+                            ? LaunchMode.externalApplication
+                            : LaunchMode.platformDefault,
+                      );
+                      if (!ok) {
+                        final fallbackOk = await launchUrl(uri);
+                        if (!fallbackOk) {
+                          showModernSnackBar(
+                            context,
+                            'تعذر فتح فيسبوك',
+                            color: Colors.orange,
+                            icon: Icons.error_outline,
+                          );
+                        }
+                      }
+                    } catch (_) {
+                      showModernSnackBar(
+                        context,
+                        'تعذر فتح فيسبوك',
+                        color: Colors.orange,
+                        icon: Icons.error_outline,
+                      );
+                    }
+                  },
+                  icon: const FaIcon(FontAwesomeIcons.facebook),
+                ),
+              ],
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
     );
   }
 

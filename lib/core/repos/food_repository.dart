@@ -12,7 +12,7 @@ class FoodRepository {
 
   Future<List<FoodItem>> fetchByCategory(String category) async {
     final c = _svc ?? _c;
-    
+
     // 1. Fetch from Cache first (Offline First)
     final cachedData = _box.get(category);
     if (cachedData != null) {
@@ -24,9 +24,9 @@ class FoodRepository {
         if (items.isNotEmpty) {
           print('📦 Loaded ${items.length} items from cache for $category');
           // We return cached items, but we also want to trigger an update in background if possible
-          // However, as a Future, we return what we have. 
+          // However, as a Future, we return what we have.
           // For "Live" updates, stream logic handles it better, but for single fetch:
-          _updateCacheInBackground(c, category); 
+          _updateCacheInBackground(c, category);
           return items;
         }
       } catch (e) {
@@ -48,7 +48,10 @@ class FoodRepository {
     }
   }
 
-  Future<void> _updateCacheInBackground(SupabaseClient? c, String category) async {
+  Future<void> _updateCacheInBackground(
+    SupabaseClient? c,
+    String category,
+  ) async {
     if (c == null) return;
     try {
       await _fetchAndCache(c, category);
@@ -58,24 +61,24 @@ class FoodRepository {
     }
   }
 
-  Future<List<FoodItem>> _fetchAndCache(SupabaseClient c, String category) async {
-      print('🔍 Fetching items for category from network: $category');
-      final res = await c
-          .from(table)
-          .select()
-          .eq('category', category)
-          .order('name');
-      
-      print('✅ Fetched ${res.length} items for $category');
-      
-      // 3. Update Cache
-      if (res.isNotEmpty) {
-        await _box.put(category, res);
-      }
-      
-      return (res as List)
-          .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+  Future<List<FoodItem>> _fetchAndCache(
+    SupabaseClient c,
+    String category,
+  ) async {
+    print('🔍 Fetching items for category from network: $category');
+    final res = await c
+        .from(table)
+        .select()
+        .eq('category', category)
+        .order('name');
+
+    print('✅ Fetched ${res.length} items for $category');
+
+    await _box.put(category, res);
+
+    return (res as List)
+        .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   Stream<List<FoodItem>> streamByCategory(String category) {
@@ -86,15 +89,13 @@ class FoodRepository {
         .stream(primaryKey: ['id'])
         .eq('category', category)
         .order('name')
-        .map(
-          (rows) {
-            // Update cache on stream update too
-            _box.put(category, rows);
-            return rows
+        .map((rows) {
+          // Update cache on stream update too
+          _box.put(category, rows);
+          return rows
               .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
               .toList();
-          },
-        )
+        })
         .asBroadcastStream();
   }
 
@@ -104,11 +105,11 @@ class FoodRepository {
       final cachedData = _box.get(category);
       if (cachedData != null) {
         try {
-           final List<dynamic> decoded = cachedData;
-           final items = decoded
+          final List<dynamic> decoded = cachedData;
+          final items = decoded
               .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
               .toList();
-           controller.add(items);
+          controller.add(items);
         } catch (_) {}
       }
 
@@ -132,10 +133,19 @@ class FoodRepository {
     return streamWithInitial(category);
   }
 
-  Future<void> add(FoodItem item) async {
+  Future<bool> add(FoodItem item) async {
     final c = _svc ?? _c;
-    if (c == null) return;
-    await c.from(table).insert(item.toJson());
+    if (c == null) return false;
+    try {
+      final res = await c
+          .from(table)
+          .insert(item.toJson())
+          .select()
+          .maybeSingle();
+      return res != null;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> update(FoodItem item) async {

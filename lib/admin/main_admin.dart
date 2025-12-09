@@ -4,6 +4,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../core/supabase_client.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/admin_menu_screen.dart';
@@ -172,17 +174,10 @@ class _AdminRootState extends State<AdminRoot> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: primaryGreen.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.storefront_rounded,
-                          size: 35,
-                          color: primaryGreen,
-                        ),
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: primaryGreen.withOpacity(0.1),
+                        backgroundImage: const AssetImage('assets/logo.PNG'),
                       ),
                       const SizedBox(height: 15), // زدنا المسافة قليلاً
                       const Text(
@@ -236,18 +231,34 @@ class _AdminRootState extends State<AdminRoot> {
                 // تذييل القائمة
                 Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Column(
                     children: [
-                      Icon(
-                        Icons.admin_panel_settings_outlined,
-                        size: 16,
-                        color: Colors.grey[400],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.admin_panel_settings_outlined,
+                            size: 16,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Admin Panel v1.0",
+                            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Admin Panel v1.0",
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _showAboutDialog,
+                          icon: const Icon(Icons.info_outline_rounded),
+                          label: const Text('حول التطبيق'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -353,6 +364,77 @@ class _AdminRootState extends State<AdminRoot> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showAboutDialog() {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: cs.surface,
+          title: const Text('حول التطبيق'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('هذا التطبيق تم تطويره وبرمجته بالكامل من قبل المطوّر: حسين ناصر.'),
+                SizedBox(height: 8),
+                Text('تم تصميم التطبيق بعناية لتقديم أفضل تجربة للمستخدم، مع التركيز على السهولة والسرعة والدقة في عرض المحتوى.'),
+                SizedBox(height: 8),
+                Text('يتم تحديث التطبيق وتحسينه بشكل مستمر لضمان أداء أفضل وتوفير مزايا جديدة تلائم احتياجات المستخدمين.'),
+                SizedBox(height: 8),
+                Text('حقوق الملكية محفوظة © 2025 – حسين ناصر'),
+                SizedBox(height: 8),
+                Text('جميع حقوق التصميم والبرمجة والتطوير محفوظة ولا يسمح بإعادة نشر التطبيق أو تعديله دون إذن.'),
+                SizedBox(height: 12),
+                Text('للتواصل'),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Instagram',
+                  onPressed: () async {
+                    final uri = Uri.parse('https://www.instagram.com/ev2m/');
+                    if (await canLaunchUrl(uri)) {
+                      try {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } catch (_) {
+                        await launchUrl(uri);
+                      }
+                    }
+                  },
+                  icon: const FaIcon(FontAwesomeIcons.instagram),
+                ),
+                IconButton(
+                  tooltip: 'Facebook',
+                  onPressed: () async {
+                    final uri = Uri.parse('https://www.facebook.com/abu.ghada.785116?locale=ar_AR');
+                    if (await canLaunchUrl(uri)) {
+                      try {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } catch (_) {
+                        await launchUrl(uri);
+                      }
+                    }
+                  },
+                  icon: const FaIcon(FontAwesomeIcons.facebook),
+                ),
+              ],
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
