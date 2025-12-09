@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_client.dart';
@@ -114,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen>
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
       final user = SupabaseManager.client?.auth.currentUser;
-      if (user == null) {
+      if (user == null && !(Platform.isIOS && !kIsWeb)) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى تسجيل الدخول عبر Google أو Apple أولاً')));
         return;
       }
@@ -129,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen>
         phone: profile.phone,
         name: profile.name,
         address: profile.address,
-        user: user.id,
+        user: user?.id,
       );
       Storage.saveProfile(
         name: profile.name,
@@ -246,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
                       key: _formKey,
                       child: Column(
                         children: [
-                          if (!_loggedIn) ...[
+                          if (!(Platform.isIOS && !kIsWeb) && !_loggedIn) ...[
                             Row(
                               children: [
                                 Expanded(
@@ -285,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen>
                             const SizedBox(height: 20),
                             const Text('يرجى تسجيل الدخول عبر Google أو Apple للمتابعة'),
                           ],
-                          if (_loggedIn && _showForm) ...[
+                          if ((Platform.isIOS && !kIsWeb) || (_loggedIn && _showForm)) ...[
                           _buildFixedColorField(
                             controller: _nameController,
                             label: 'اسمك الكريم',
