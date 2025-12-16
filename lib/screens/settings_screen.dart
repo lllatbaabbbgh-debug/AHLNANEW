@@ -47,7 +47,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   subtitle: const Text('سيتم تفعيل الوضع الداكن/الفاتح حسب إعدادات هاتفك'),
                   value: mode == ThemeMode.system,
-                  activeColor: Theme.of(context).primaryColor,
+                  activeThumbColor: Theme.of(context).primaryColor,
                   onChanged: (val) {
                     if (val) {
                       themeController.setTheme(ThemeMode.system);

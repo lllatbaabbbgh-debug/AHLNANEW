@@ -128,8 +128,9 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
         dialogSelectedCat = cat.nameEn;
       } catch (_) {
         // If not found or selectedCategory is invalid, leave as null (or default to first)
-        if (_allCategories.isNotEmpty)
+        if (_allCategories.isNotEmpty) {
           dialogSelectedCat = _allCategories.first.nameEn;
+        }
       }
     } else if (_allCategories.isNotEmpty) {
       // Default to first category if 'All' is selected

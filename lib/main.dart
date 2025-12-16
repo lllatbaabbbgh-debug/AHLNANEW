@@ -17,7 +17,7 @@ Future<void> main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   
   await Hive.initFlutter();
-  await Hive.openBox('food_cache');
+  await Hive.openBox('food_cache_v2');
   await Hive.openBox('offers_cache');
   
   await SupabaseManager.init();

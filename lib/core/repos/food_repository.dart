@@ -9,8 +9,8 @@ class FoodRepository {
   // Safe access to Hive box
   Box? get _box {
     try {
-      if (Hive.isBoxOpen('food_cache')) {
-        return Hive.box('food_cache');
+      if (Hive.isBoxOpen('food_cache_v2')) {
+        return Hive.box('food_cache_v2');
       }
     } catch (_) {}
     return null;
@@ -77,7 +77,7 @@ class FoodRepository {
       try {
         print('🔄 Fetching all items via Service Client...');
         res = await svc.from(table).select().order('id', ascending: false);
-        print('✅ Service Client success: ${res?.length} items');
+        print('✅ Service Client success: ${res.length} items');
       } catch (e) {
         print('⚠️ Service client failed to fetch all items: $e');
       }
@@ -89,8 +89,8 @@ class FoodRepository {
     if (res == null && anon != null) {
       try {
         print('🔄 Fetching all items via Anon Client...');
-        res = await anon.from(table).select().order('id', ascending: false);
-        print('✅ Anon Client success: ${res?.length} items');
+        res = await anon.from(table).select().order('created_at', ascending: false);
+        print('✅ Anon Client success: ${res.length} items');
       } catch (e) {
         print('❌ Anon client failed to fetch all items: $e');
       }
@@ -104,7 +104,7 @@ class FoodRepository {
       if (box != null) {
         await box.put('__ALL__', res);
       }
-      return (res as List)
+      return (res)
           .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
           .toList();
     }
@@ -154,7 +154,7 @@ class FoodRepository {
         .select()
         .eq('category', category)
         //.order('sort_order') // Removed: Column missing in DB
-        .order('id', ascending: false);
+        .order('created_at', ascending: false);
 
     print('✅ Fetched ${res.length} items for $category');
 
@@ -176,7 +176,7 @@ class FoodRepository {
         .stream(primaryKey: ['id'])
         .eq('category', category)
         //.order('sort_order') // Removed: Column missing in DB
-        .order('id', ascending: false)
+        .order('created_at', ascending: false)
         .map((rows) {
           // Update cache on stream update too
           final box = _box;
