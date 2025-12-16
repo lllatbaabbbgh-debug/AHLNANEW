@@ -185,13 +185,13 @@ CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE POLICY IF NOT EXISTS "auth_read_own_profile" ON public.profiles
-    FOR SELECT TO authenticated USING (user = auth.uid());
+    FOR SELECT TO authenticated USING (user = auth.uid()::text);
 
 CREATE POLICY IF NOT EXISTS "auth_upsert_own_profile" ON public.profiles
-    FOR INSERT TO authenticated WITH CHECK (user = auth.uid());
+    FOR INSERT TO authenticated WITH CHECK (user = auth.uid()::text);
 
 CREATE POLICY IF NOT EXISTS "auth_update_own_profile" ON public.profiles
-    FOR UPDATE TO authenticated USING (user = auth.uid()) WITH CHECK (user = auth.uid());
+    FOR UPDATE TO authenticated USING (user = auth.uid()::text) WITH CHECK (user = auth.uid()::text);
 
 CREATE POLICY IF NOT EXISTS "anon_upsert_profiles" ON public.profiles
     FOR INSERT TO anon WITH CHECK (user = phone AND phone IS NOT NULL);

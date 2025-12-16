@@ -58,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_formKey.currentState?.validate() ?? false) {
       final profile = ProfileProvider.of(context);
       profile.set(
@@ -67,19 +67,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         address: _addressController.text.trim(),
       );
       final repo = ProfileRepository();
-      repo.upsert(
+      final ok = await repo.upsert(
         phone: profile.phone,
         name: profile.name,
         address: profile.address,
       );
-      Storage.saveProfile(
+      await Storage.saveProfile(
         name: profile.name,
         phone: profile.phone,
         address: profile.address,
       );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('تم حفظ البيانات')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'تم حفظ البيانات' : 'تعذر تحديث قاعدة البيانات، تم الحفظ محليًا')),
+      );
     }
   }
 

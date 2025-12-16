@@ -17,8 +17,13 @@ Future<void> main() async {
 
   // Initialize Hive
   await Hive.initFlutter();
-  await Hive.openBox('food_cache');
-  // await Hive.openBox('offers_cache'); // Uncomment if needed later
+  try {
+    await Hive.openBox('food_cache');
+    // await Hive.openBox('offers_cache'); // Uncomment if needed later
+  } catch (e) {
+    print('⚠️ Hive initialization failed (likely file lock): $e');
+    // Attempt to delete lock file if possible or just proceed without cache
+  }
 
   await SupabaseManager.init();
 
@@ -437,4 +442,6 @@ class _AdminRootState extends State<AdminRoot> {
       },
     );
   }
+
+
 }

@@ -19,53 +19,95 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
   late List<FoodItem> items;
   final repo = FoodRepository();
   final catRepo = CategoryRepository();
-  
+
   List<CategoryModel> _allCategories = [];
   String? selectedCategory;
+
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     items = [];
+    selectedCategory = '__ALL__';
     _loadData();
   }
 
   Future<void> _loadData() async {
     final cats = await catRepo.getAllCategories();
-    // If empty, use defaults (fallback)
-    if (cats.isEmpty) {
-       _allCategories = [
-         const CategoryModel(id: 1, nameEn: 'Lahm Bi Ajeen', nameAr: 'لحم بعجين'),
-         const CategoryModel(id: 2, nameEn: 'Pizza', nameAr: 'بيتزا'),
-         const CategoryModel(id: 3, nameEn: 'Drinks', nameAr: 'مشروبات'),
-       ];
-    } else {
+    if (cats.isNotEmpty) {
       _allCategories = cats;
+      // selectedCategory is already set to __ALL__ by default
+    } else {
+      final allItemsForCats = await repo.fetchAllFresh();
+      final distinct = allItemsForCats
+          .map((e) => e.category)
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList();
+      if (distinct.isNotEmpty) {
+        _allCategories = List.generate(
+          distinct.length,
+          (i) => CategoryModel(
+            id: i + 1,
+            nameEn: distinct[i],
+            nameAr: distinct[i],
+          ),
+        );
+      } else {
+        _allCategories = [
+          const CategoryModel(
+            id: 1,
+            nameEn: 'Lahm Bi Ajeen',
+            nameAr: 'لحم بعجين',
+          ),
+          const CategoryModel(id: 2, nameEn: 'Pizza', nameAr: 'بيتزا'),
+          const CategoryModel(id: 3, nameEn: 'Drinks', nameAr: 'مشروبات'),
+        ];
+      }
     }
-    
-    if (_allCategories.isNotEmpty) {
-      selectedCategory = _allCategories.first.nameEn;
-    }
-    
     await _loadAllItems();
   }
 
-  List<FoodItem> byCat(String c) =>
-      items.where((e) => e.category == c).toList();
+  List<FoodItem> byCat(String c) {
+    final found = _allCategories.firstWhere(
+      (m) => m.nameAr == c || m.nameEn == c,
+      orElse: () => CategoryModel(id: -1, nameEn: c, nameAr: c),
+    );
+    final names = {found.nameAr, found.nameEn};
+
+    // Filter
+    final filtered = items.where((e) => names.contains(e.category)).toList();
+
+    // Sort based on local persistent order
+    final order = repo.getCategoryOrder(found.nameAr); // Try Arabic name first
+    if (order.isEmpty && found.nameAr != found.nameEn) {
+      // Try English name if empty
+      // Actually we save using selectedCategory which is Arabic name in UI usually
+    }
+
+    // If order exists, sort filtered list
+    if (order.isNotEmpty) {
+      // Create a map for O(1) lookup
+      final orderMap = {for (var i = 0; i < order.length; i++) order[i]: i};
+      filtered.sort((a, b) {
+        final idxA = orderMap[a.id] ?? 999999;
+        final idxB = orderMap[b.id] ?? 999999;
+        if (idxA == idxB) return a.name.compareTo(b.name);
+        return idxA.compareTo(idxB);
+      });
+    }
+
+    return filtered;
+  }
 
   Future<void> _loadAllItems() async {
-    final all = <FoodItem>[];
-    // We only fetch items for leaf categories or all categories?
-    // Let's fetch for all to be safe
-    for (final c in _allCategories) {
-      try {
-        final fetched = await repo.fetchByCategory(c.nameEn);
-        all.addAll(fetched);
-      } catch (_) {}
-    }
+    if (mounted) setState(() => _isLoading = true);
+    final allItems = await repo.fetchAllFresh();
     if (mounted) {
       setState(() {
-        items = all;
+        items = allItems;
+        _isLoading = false;
       });
     }
   }
@@ -75,7 +117,25 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     final priceCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final imageCtrl = TextEditingController();
-    String? dialogSelectedCat = selectedCategory;
+
+    // Fix: Find the correct initial English name for the dropdown
+    String? dialogSelectedCat;
+    if (selectedCategory != null && selectedCategory != '__ALL__') {
+      try {
+        final cat = _allCategories.firstWhere(
+          (c) => c.nameAr == selectedCategory || c.nameEn == selectedCategory,
+        );
+        dialogSelectedCat = cat.nameEn;
+      } catch (_) {
+        // If not found or selectedCategory is invalid, leave as null (or default to first)
+        if (_allCategories.isNotEmpty)
+          dialogSelectedCat = _allCategories.first.nameEn;
+      }
+    } else if (_allCategories.isNotEmpty) {
+      // Default to first category if 'All' is selected
+      dialogSelectedCat = _allCategories.first.nameEn;
+    }
+
     bool uploading = false;
     Future<void> pickAndUpload() async {
       final res = await FilePicker.platform.pickFiles(
@@ -126,7 +186,8 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: (v) => dialogSelectedCat = v ?? dialogSelectedCat,
+                        onChanged: (v) =>
+                            dialogSelectedCat = v ?? dialogSelectedCat,
                         decoration: const InputDecoration(labelText: 'القسم'),
                       ),
                       TextField(
@@ -156,7 +217,9 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                           const SizedBox(width: 8),
                           ElevatedButton(
                             onPressed: uploading ? null : pickAndUpload,
-                            child: Text(uploading ? 'جارٍ الرفع...' : 'رفع صورة'),
+                            child: Text(
+                              uploading ? 'جارٍ الرفع...' : 'رفع صورة',
+                            ),
                           ),
                         ],
                       ),
@@ -286,7 +349,9 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                           const SizedBox(width: 8),
                           ElevatedButton(
                             onPressed: uploading ? null : pickAndUpload,
-                            child: Text(uploading ? 'جارٍ الرفع...' : 'رفع صورة'),
+                            child: Text(
+                              uploading ? 'جارٍ الرفع...' : 'رفع صورة',
+                            ),
                           ),
                         ],
                       ),
@@ -347,12 +412,30 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
     );
   }
 
+  List<FoodItem> _getSortedList() {
+    if (selectedCategory == null) return [];
+
+    List<FoodItem> rawList;
+    if (selectedCategory == '__ALL__') {
+      rawList = List.from(items);
+    } else {
+      rawList = byCat(selectedCategory!);
+    }
+
+    // Default to sorting by ID descending (Newest first) since we removed manual reordering
+    // This matches the "Publishing Order" request (Added first -> appears last in list? No, Newest First is usually desired)
+    // User said: "Anything I add first... appears last".
+    // If list is [Newest, ..., Oldest], then Oldest is last.
+    // So Descending ID sort is correct.
+    rawList.sort((a, b) => b.id.compareTo(a.id));
+
+    return rawList;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final list = selectedCategory == null ? <FoodItem>[] : byCat(selectedCategory!);
-    
-    final parents = _allCategories.where((c) => c.parentId == null).toList();
+    final list = _getSortedList();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -362,35 +445,20 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
           SizedBox(
             width: 240,
             child: ListView(
-              children: parents.map((p) {
-                final children = _allCategories.where((c) => c.parentId == p.id).toList();
-                if (children.isEmpty) {
-                   return ListTile(
-                    title: Text(p.nameAr),
-                    selected: selectedCategory == p.nameEn,
-                    onTap: () async {
-                      setState(() => selectedCategory = p.nameEn);
-                    },
+              children: [
+                ListTile(
+                  title: const Text('كل العناصر'),
+                  selected: selectedCategory == '__ALL__',
+                  onTap: () => setState(() => selectedCategory = '__ALL__'),
+                ),
+                ..._allCategories.map((cat) {
+                  return ListTile(
+                    title: Text(cat.nameAr),
+                    selected: selectedCategory == cat.nameAr,
+                    onTap: () => setState(() => selectedCategory = cat.nameAr),
                   );
-                }
-                return ExpansionTile(
-                  title: Text(p.nameAr),
-                  initiallyExpanded: true,
-                  children: [
-                     ListTile(
-                      title: Text('الكل في ${p.nameAr}'),
-                      selected: selectedCategory == p.nameEn,
-                      onTap: () => setState(() => selectedCategory = p.nameEn),
-                    ),
-                    ...children.map((child) => ListTile(
-                      title: Text(child.nameAr),
-                      contentPadding: const EdgeInsets.only(right: 32),
-                      selected: selectedCategory == child.nameEn,
-                      onTap: () => setState(() => selectedCategory = child.nameEn),
-                    )),
-                  ],
-                );
-              }).toList(),
+                }),
+              ],
             ),
           ),
           Expanded(
@@ -405,10 +473,6 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                         child: const Text('إضافة صنف'),
                       ),
                       const SizedBox(width: 12),
-                      OutlinedButton(
-                        onPressed: _loadData,
-                        child: const Text('مزامنة'),
-                      ),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.category),
@@ -418,135 +482,204 @@ class _AdminMenuScreenState extends State<AdminMenuScreen> {
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () async {
-                           await Navigator.push(
-                             context,
-                             MaterialPageRoute(builder: (_) => const AdminCategoriesScreen()),
-                           );
-                           _loadData();
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AdminCategoriesScreen(),
+                            ),
+                          );
+                          _loadData();
                         },
                       ),
                     ],
                   ),
                 ),
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final it = list[index];
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: cs.surface,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            it.imageUrl,
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 56,
-                              height: 56,
-                              color: Colors.black26,
-                              child: const Icon(Icons.broken_image),
-                            ),
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : list.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.inbox,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'لا توجد عناصر في هذا القسم',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: Colors.grey),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadAllItems,
+                                child: const Text('تحديث البيانات'),
+                              ),
+                            ],
                           ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: list.length,
+                          itemBuilder: (context, index) {
+                            final it = list[index];
+                            return Container(
+                              key: ValueKey(it.id),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: cs.surface,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    it.imageUrl,
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 56,
+                                      height: 56,
+                                      color: Colors.black26,
+                                      child: const Icon(Icons.broken_image),
+                                    ),
+                                  ),
+                                ),
+                                title: Text(it.name),
+                                subtitle: Text(
+                                  '${it.price % 1 == 0 ? it.price.toInt() : it.price} IQD',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ReorderableDragStartListener(
+                                      index: index,
+                                      child: const Icon(Icons.drag_handle),
+                                    ),
+                                    Switch(
+                                      value: it.isAvailable,
+                                      onChanged: (v) async {
+                                        final updated = it.copyWith(
+                                          isAvailable: v,
+                                        );
+                                        setState(() {
+                                          final idx = items.indexWhere(
+                                            (e) => e.id == it.id,
+                                          );
+                                          if (idx != -1) items[idx] = updated;
+                                          final li = list.indexWhere(
+                                            (e) => e.id == it.id,
+                                          );
+                                          if (li != -1) list[li] = updated;
+                                        });
+                                        final ok = await repo.update(updated);
+                                        if (!ok) {
+                                          setState(() {
+                                            final idx = items.indexWhere(
+                                              (e) => e.id == it.id,
+                                            );
+                                            if (idx != -1) items[idx] = it;
+                                            final li = list.indexWhere(
+                                              (e) => e.id == it.id,
+                                            );
+                                            if (li != -1) list[li] = it;
+                                          });
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('تعذر حفظ التغيير'),
+                                            ),
+                                          );
+                                        } else {
+                                          await _loadAllItems();
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      onPressed: () => _editItem(it),
+                                      icon: const Icon(Icons.edit),
+                                    ),
+                                    IconButton(
+                                      onPressed: () async {
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) {
+                                            final cs2 = Theme.of(
+                                              context,
+                                            ).colorScheme;
+                                            return AlertDialog(
+                                              backgroundColor: cs2.surface,
+                                              title: const Text('حذف الصنف'),
+                                              content: const Text(
+                                                'هل تريد حذف هذا الصنف بشكل نهائي؟',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                        context,
+                                                        false,
+                                                      ),
+                                                  child: const Text('إلغاء'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(
+                                                        context,
+                                                        true,
+                                                      ),
+                                                  child: const Text('حذف'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                        if (ok == true) {
+                                          final success = await repo.delete(
+                                            it.id,
+                                          );
+                                          if (success) {
+                                            setState(() {
+                                              items.removeWhere(
+                                                (e) => e.id == it.id,
+                                              );
+                                            });
+                                          } else {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'تعذر حذف العنصر (قد يكون مرتبط بطلبات سابقة)',
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        }
+                                      },
+                                      icon: const Icon(Icons.delete),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        title: Text(it.name),
-                        subtitle: Text(
-                          '${it.price % 1 == 0 ? it.price.toInt() : it.price} IQD',
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Switch(
-                              value: it.isAvailable,
-                              onChanged: (v) async {
-                                print('🔄 Toggling availability for ${it.name}: $v');
-                                final updated = it.copyWith(isAvailable: v);
-                                print('📦 Updated item data: ${updated.toJson()}');
-                                setState(() {
-                                  final idx = items.indexWhere(
-                                    (e) => e.id == it.id,
-                                  );
-                                  items[idx] = updated;
-                                });
-                                final ok = await repo.update(updated);
-                                if (!ok) {
-                                  print('❌ Database update failed or no rows modified');
-                                  // Revert on error
-                                  setState(() {
-                                    final idx = items.indexWhere(
-                                      (e) => e.id == it.id,
-                                    );
-                                    items[idx] = it;
-                                  });
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('تعذر حفظ التغيير')), 
-                                  );
-                                } else {
-                                  print('✅ Database update completed');
-                                  await _loadAllItems();
-                                }
-                              },
-                            ),
-                            IconButton(
-                              onPressed: () => _editItem(it),
-                              icon: const Icon(Icons.edit),
-                            ),
-                            IconButton(
-                              onPressed: () async {
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) {
-                                    final cs2 = Theme.of(context).colorScheme;
-                                    return AlertDialog(
-                                      backgroundColor: cs2.surface,
-                                      title: const Text('حذف الصنف'),
-                                      content: const Text(
-                                        'هل تريد حذف هذا الصنف بشكل نهائي؟',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text('إلغاء'),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: const Text('حذف'),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                                if (ok == true) {
-                                  await repo.delete(it.id);
-                                  setState(() {
-                                    items.removeWhere((e) => e.id == it.id);
-                                  });
-                                }
-                              },
-                              icon: const Icon(Icons.delete),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
   }
 }

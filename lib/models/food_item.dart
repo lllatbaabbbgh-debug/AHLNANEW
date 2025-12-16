@@ -6,6 +6,7 @@ class FoodItem {
   final String imageUrl;
   final String category;
   final bool isAvailable;
+  final int sortOrder;
 
   const FoodItem({
     required this.id,
@@ -15,6 +16,7 @@ class FoodItem {
     required this.imageUrl,
     required this.category,
     this.isAvailable = true,
+    this.sortOrder = 0,
   });
 
   String get heroTag => 'food_$id';
@@ -27,6 +29,7 @@ class FoodItem {
     String? imageUrl,
     String? category,
     bool? isAvailable,
+    int? sortOrder,
   }) {
     return FoodItem(
       id: id ?? this.id,
@@ -36,6 +39,7 @@ class FoodItem {
       imageUrl: imageUrl ?? this.imageUrl,
       category: category ?? this.category,
       isAvailable: isAvailable ?? this.isAvailable,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -48,6 +52,7 @@ class FoodItem {
       imageUrl: (json['image_url'] as String?) ?? (json['imageUrl'] as String? ?? ''),
       category: json['category'] as String,
       isAvailable: (json['is_available'] as bool?) ?? (json['isAvailable'] as bool?) ?? true,
+      sortOrder: (json['sort_order'] as int?) ?? (json['sortOrder'] as int?) ?? 0,
     );
   }
 
@@ -60,6 +65,7 @@ class FoodItem {
       'image_url': imageUrl,
       'category': category,
       'is_available': isAvailable,
+      'sort_order': sortOrder,
     };
   }
 }

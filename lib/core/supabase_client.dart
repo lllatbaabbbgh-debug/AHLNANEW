@@ -14,6 +14,7 @@ class SupabaseConfig {
   );
   static const supabaseServiceKey = String.fromEnvironment(
     'SUPABASE_SERVICE_ROLE_KEY',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJveWx6aWRtdnZsZG91eHRycGl2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mzg0NDQ2OCwiZXhwIjoyMDc5NDIwNDY4fQ.GnddzO4SFff1ze0pdvmk-X-FKxpn9ajdm5Q4hjbiGoY',
   );
 }
 
@@ -65,6 +66,24 @@ class SupabaseManager {
         }
       } catch (_) {}
     }
+    _initialized = true;
+  }
+
+  static Future<void> reconfigure({
+    required String url,
+    required String anonKey,
+    String? serviceKey,
+  }) async {
+    await Storage.saveSupabaseConfig(url: url, anonKey: anonKey);
+    if (serviceKey != null && serviceKey.isNotEmpty) {
+      await Storage.saveSupabaseServiceKey(serviceKey: serviceKey);
+    }
+    _svcUrl = url;
+    if (serviceKey != null && serviceKey.isNotEmpty) {
+      _svcKey = serviceKey;
+    }
+    _initialized = false;
+    await Supabase.initialize(url: url, anonKey: anonKey);
     _initialized = true;
   }
 

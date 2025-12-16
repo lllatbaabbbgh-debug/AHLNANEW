@@ -142,26 +142,26 @@ class _DetailsScreenState extends State<DetailsScreen>
                                         int.tryParse(_qtyController.text) ?? 1;
                                     final finalQty = qty < 1 ? 1 : qty;
                                     cart.setQuantity(widget.item, finalQty);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                          'تمت الإضافة إلى السلة',
-                                        ),
-                                        duration: const Duration(
-                                          milliseconds: 500,
-                                        ),
-                                        behavior: SnackBarBehavior.floating,
-                                        margin: const EdgeInsets.symmetric(
-                                          horizontal: 100,
-                                          vertical: 20,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                    );
+                                    // ScaffoldMessenger.of(context).showSnackBar(
+                                    //   SnackBar(
+                                    //     content: const Text(
+                                    //       'تمت الإضافة إلى السلة',
+                                    //     ),
+                                    //     duration: const Duration(
+                                    //       milliseconds: 500,
+                                    //     ),
+                                    //     behavior: SnackBarBehavior.floating,
+                                    //     margin: const EdgeInsets.symmetric(
+                                    //       horizontal: 100,
+                                    //       vertical: 20,
+                                    //     ),
+                                    //     shape: RoundedRectangleBorder(
+                                    //       borderRadius: BorderRadius.circular(
+                                    //         12,
+                                    //       ),
+                                    //     ),
+                                    //   ),
+                                    // );
                                   }
                                 : null,
                             child: Container(

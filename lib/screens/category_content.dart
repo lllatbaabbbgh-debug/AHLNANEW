@@ -341,12 +341,6 @@ class _CategoryContentState extends State<CategoryContent>
                                   imageUrl: item.imageUrl,
                                   onComplete: () {
                                     CartProvider.of(context).add(item);
-                                    showModernSnackBar(
-                                      context,
-                                      'تمت إضافة ${item.name} إلى السلة',
-                                      color: theme.primaryColor,
-                                      icon: Icons.add_circle,
-                                    );
                                   },
                                 );
                               },

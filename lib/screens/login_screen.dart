@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_client.dart';
@@ -154,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
       final user = SupabaseManager.client?.auth.currentUser;
       final profile = ProfileProvider.of(context);
@@ -164,17 +162,41 @@ class _LoginScreenState extends State<LoginScreen>
         address: _addressController.text.trim(),
       );
       final repo = ProfileRepository();
-      repo.upsert(
-        phone: profile.phone,
+      bool ok = false;
+      try {
+        ok = await repo.upsert(
+          phone: profile.phone,
+          name: profile.name,
+          address: profile.address,
+          user: user?.id,
+        );
+      } catch (e) {
+        debugPrint('LoginScreen: Error during upsert: $e');
+      }
+      
+      await Storage.saveProfile(
         name: profile.name,
-        address: profile.address,
-        user: user?.id,
-      );
-      Storage.saveProfile(
-        name: profile.name,
         phone: profile.phone,
         address: profile.address,
       );
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذر تحديث قاعدة البيانات، تم الحفظ محليًا'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حفظ الملف الشخصي بنجاح'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const RootScaffold()),

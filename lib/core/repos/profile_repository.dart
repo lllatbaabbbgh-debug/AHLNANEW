@@ -1,40 +1,61 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../supabase_client.dart';
 
 class ProfileRepository {
   static const table = 'profiles';
   SupabaseClient? get _c => SupabaseManager.client;
 
-  Future<void> upsert({
+  Future<bool> upsert({
     required String phone,
     required String name,
     required String address,
     String? user,
   }) async {
     final c = _c;
-    if (c == null) return;
+    if (c == null) {
+      debugPrint('ProfileRepository: Supabase client is null');
+      return false;
+    }
+    
     try {
+      // محاولة الإدراج/التحديث باستخدام عميل المصادقة العادي
+      debugPrint('ProfileRepository: Attempting upsert with auth client for phone: $phone, user: ${user ?? phone}');
       await c.from(table).upsert({
         'phone': phone,
         'name': name,
         'address': address,
         'user': user ?? phone,
         'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user');
-    } catch (_) {
-      final svc = SupabaseManager.serviceClient;
-      if (svc != null) {
-        try {
-          await svc.from(table).upsert({
-            'phone': phone,
-            'name': name,
-            'address': address,
-            'user': user ?? phone,
-            'updated_at': DateTime.now().toIso8601String(),
-          }, onConflict: 'user');
-        } catch (_) {}
-      }
-    }
+      }, onConflict: 'phone');
+      debugPrint('ProfileRepository: Upsert successful with auth client');
+          return true;
+        } catch (e) {
+          debugPrint('ProfileRepository: Auth client upsert failed: $e');
+          
+          final svc = SupabaseManager.serviceClient;
+          if (svc != null) {
+            try {
+              debugPrint('ProfileRepository: Attempting upsert with service client');
+              await svc.from(table).upsert({
+                'phone': phone,
+                'name': name,
+                'address': address,
+                'user': user ?? phone,
+                'updated_at': DateTime.now().toIso8601String(),
+              }, onConflict: 'phone');
+              debugPrint('ProfileRepository: Upsert successful with service client');
+              return true;
+            } catch (svcError) {
+              debugPrint('ProfileRepository: Service client upsert also failed: $svcError');
+            }
+          } else {
+            debugPrint('ProfileRepository: Service client is null');
+          }
+        }
+        
+        debugPrint('ProfileRepository: All upsert attempts failed');
+        return false;
   }
 
   Future<Map<String, dynamic>?> getByPhone(String phone) async {

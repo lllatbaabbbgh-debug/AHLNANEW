@@ -7,8 +7,15 @@ import '../core/repos/order_repository.dart';
 import '../admin/models/order.dart';
 import '../core/profile.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  bool _isLoading = false;
 
   void _showToastNotification(
     BuildContext context,
@@ -196,409 +203,448 @@ class CartScreen extends StatelessWidget {
                             ),
                             elevation: 5,
                           ),
-                          onPressed: () async {
-                            final profile = ProfileProvider.of(context);
-                            if (profile.name.isEmpty ||
-                                profile.phone.isEmpty ||
-                                profile.address.isEmpty) {
-                              final local = await Storage.loadProfile();
-                              profile.set(
-                                name: local['name'],
-                                phone: local['phone'],
-                                address: local['address'],
-                              );
-                            }
-
-                            // ----------------------------------------------------
-                            //  🔥 بداية نافذة الاختيار الجديدة (Premium Design) 🔥
-                            // ----------------------------------------------------
-                            final type = await showDialog<String>(
-                              context: context,
-                              builder: (context) {
-                                final theme = Theme.of(context);
-                                String? selected;
-                                return StatefulBuilder(
-                                  builder: (context, setState) {
-                                    return Dialog(
-                                      backgroundColor: Colors
-                                          .transparent, // شفاف لنرسم نحن الخلفية
-                                      insetPadding: const EdgeInsets.all(16),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: theme.scaffoldBackgroundColor,
-                                          borderRadius: BorderRadius.circular(
-                                            28,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.2,
-                                              ),
-                                              blurRadius: 20,
-                                              offset: const Offset(0, 10),
-                                            ),
-                                          ],
-                                        ),
-                                        padding: const EdgeInsets.fromLTRB(
-                                          20,
-                                          24,
-                                          20,
-                                          20,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'شلون تحب تستلم طلبك؟',
-                                              style: theme.textTheme.titleLarge
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w900,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 24),
-
-                                            // خيار سفري
-                                            _buildPremiumCard(
-                                              context,
-                                              title: 'سفري (Takeaway)',
-                                              value: 'takeaway',
-                                              groupValue: selected,
-                                              icon: Icons.shopping_bag_rounded,
-                                              onChanged: (v) =>
-                                                  setState(() => selected = v),
-                                            ),
-                                            const SizedBox(height: 12),
-
-                                            // خيار صالة
-                                            _buildPremiumCard(
-                                              context,
-                                              title: 'داخل المطعم (Dine-in)',
-                                              value: 'dinein',
-                                              groupValue: selected,
-                                              icon: Icons.table_bar_rounded,
-                                              onChanged: (v) =>
-                                                  setState(() => selected = v),
-                                            ),
-                                            const SizedBox(height: 12),
-
-                                            // خيار دليفري
-                                            _buildPremiumCard(
-                                              context,
-                                              title: 'توصيل (Delivery)',
-                                              value: 'delivery',
-                                              groupValue: selected,
-                                              icon:
-                                                  Icons.delivery_dining_rounded,
-                                              onChanged: (v) =>
-                                                  setState(() => selected = v),
-                                            ),
-                                            const SizedBox(height: 30),
-
-                                            // أزرار التحكم
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(context),
-                                                    style: TextButton.styleFrom(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            vertical: 16,
-                                                          ),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              14,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    child: Text(
-                                                      'إلغاء',
-                                                      style: TextStyle(
-                                                        color: Colors.grey[600],
-                                                        fontSize: 16,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: ElevatedButton(
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor:
-                                                          selected != null
-                                                          ? theme.primaryColor
-                                                          : Colors.grey[300],
-                                                      foregroundColor:
-                                                          Colors.white,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            vertical: 16,
-                                                          ),
-                                                      elevation:
-                                                          selected != null
-                                                          ? 8
-                                                          : 0,
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              14,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    onPressed: selected == null
-                                                        ? null
-                                                        : () => Navigator.pop(
-                                                            context,
-                                                            selected,
-                                                          ),
-                                                    child: const Text(
-                                                      'تأكيد الطلب',
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                          onPressed: _isLoading
+                              ? null
+                              : () async {
+                                  final profile = ProfileProvider.of(context);
+                                  if (profile.name.isEmpty ||
+                                      profile.phone.isEmpty ||
+                                      profile.address.isEmpty) {
+                                    final local = await Storage.loadProfile();
+                                    profile.set(
+                                      name: local['name'],
+                                      phone: local['phone'],
+                                      address: local['address'],
                                     );
-                                  },
-                                );
-                              },
-                            );
-                            // ----------------------------------------------------
-                            // نهاية التصميم الجديد
-                            // ----------------------------------------------------
+                                  }
 
-                            if (type == null) return;
+                                  // ----------------------------------------------------
+                                  //  🔥 بداية نافذة الاختيار الجديدة (Premium Design) 🔥
+                                  // ----------------------------------------------------
+                                  final type = await showDialog<String>(
+                                    context: context,
+                                    builder: (context) {
+                                      final theme = Theme.of(context);
+                                      String? selected;
+                                      return StatefulBuilder(
+                                        builder: (context, setState) {
+                                          return Dialog(
+                                            backgroundColor: Colors
+                                                .transparent, // شفاف لنرسم نحن الخلفية
+                                            insetPadding: const EdgeInsets.all(16),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: theme.scaffoldBackgroundColor,
+                                                borderRadius: BorderRadius.circular(
+                                                  28,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(
+                                                      0.2,
+                                                    ),
+                                                    blurRadius: 20,
+                                                    offset: const Offset(0, 10),
+                                                  ),
+                                                ],
+                                              ),
+                                              padding: const EdgeInsets.fromLTRB(
+                                                20,
+                                                24,
+                                                20,
+                                                20,
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    'شلون تحب تستلم طلبك؟',
+                                                    style: theme.textTheme.titleLarge
+                                                        ?.copyWith(
+                                                          fontWeight: FontWeight.w900,
+                                                        ),
+                                                  ),
+                                                  const SizedBox(height: 24),
 
-                            // إظهار رسالة للمستخدم حول نوع الطلب المختار
-                            _showToastNotification(
-                              context,
-                              'تم اختيار طلب ${type == 'delivery'
-                                  ? 'توصيل'
-                                  : type == 'takeaway'
-                                  ? 'سفري'
-                                  : 'داخل المطعم'}',
-                              isError: false,
-                            );
+                                                  // خيار سفري
+                                                  _buildPremiumCard(
+                                                    context,
+                                                    title: 'سفري (Takeaway)',
+                                                    value: 'takeaway',
+                                                    groupValue: selected,
+                                                    icon: Icons.shopping_bag_rounded,
+                                                    onChanged: (v) =>
+                                                        setState(() => selected = v),
+                                                  ),
+                                                  const SizedBox(height: 12),
 
-                            final repo = OrderRepository();
-                            final items = cart.items
-                                .map(
-                                  (ci) => OrderItem(
-                                    item: ci.item,
-                                    quantity: ci.quantity,
-                                  ),
-                                )
-                                .toList();
-                            final name = profile.name.isNotEmpty
-                                ? profile.name
-                                : 'زبون';
-                            final phone = profile.phone.isNotEmpty
-                                ? profile.phone
-                                : '0770';
-                            final address = profile.address.isNotEmpty
-                                ? profile.address
-                                : 'بدون';
-                            String? orderId;
-                            try {
-                              double? lat;
-                              double? long;
-                              if (type == 'delivery') {
-                                _showToastNotification(
-                                  context,
-                                  'جاري الحصول على موقعك للتوصيل...',
-                                  isError: false,
-                                );
+                                                  // خيار صالة
+                                                  _buildPremiumCard(
+                                                    context,
+                                                    title: 'داخل المطعم (Dine-in)',
+                                                    value: 'dinein',
+                                                    groupValue: selected,
+                                                    icon: Icons.table_bar_rounded,
+                                                    onChanged: (v) =>
+                                                        setState(() => selected = v),
+                                                  ),
+                                                  const SizedBox(height: 12),
 
-                                var serviceEnabled =
-                                    await Geolocator.isLocationServiceEnabled();
-                                if (!serviceEnabled) {
-                                  final accept =
-                                      await showDialog<bool>(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('تشغيل الموقع'),
-                                          content: const Text(
-                                            'يرجى تشغيل الـ GPS لإتمام طلب التوصيل. هل تريد فتح الإعدادات؟',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, false),
-                                              child: const Text('لا'),
+                                                  // خيار دليفري
+                                                  _buildPremiumCard(
+                                                    context,
+                                                    title: 'توصيل (Delivery)',
+                                                    value: 'delivery',
+                                                    groupValue: selected,
+                                                    icon:
+                                                        Icons.delivery_dining_rounded,
+                                                    onChanged: (v) =>
+                                                        setState(() => selected = v),
+                                                  ),
+                                                  const SizedBox(height: 30),
+
+                                                  // أزرار التحكم
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.pop(context),
+                                                          style: TextButton.styleFrom(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  vertical: 16,
+                                                                ),
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    14,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            'إلغاء',
+                                                            style: TextStyle(
+                                                              color: Colors.grey[600],
+                                                              fontSize: 16,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: ElevatedButton(
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor:
+                                                                selected != null
+                                                                ? theme.primaryColor
+                                                                : Colors.grey[300],
+                                                            foregroundColor:
+                                                                Colors.white,
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  vertical: 16,
+                                                                ),
+                                                            elevation:
+                                                                selected != null
+                                                                ? 8
+                                                                : 0,
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    14,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                          onPressed: selected == null
+                                                              ? null
+                                                              : () => Navigator.pop(
+                                                                  context,
+                                                                  selected,
+                                                                ),
+                                                          child: const Text(
+                                                            'تأكيد الطلب',
+                                                            style: TextStyle(
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            ElevatedButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, true),
-                                              child: const Text('نعم'),
-                                            ),
-                                          ],
-                                        ),
-                                      ) ??
-                                      false;
-                                  if (accept) {
-                                    await Geolocator.openLocationSettings();
-                                    serviceEnabled =
-                                        await Geolocator.isLocationServiceEnabled();
-                                    if (!serviceEnabled) {
-                                      _showToastNotification(
-                                        context,
-                                        'قم بتشغيل الموقع',
-                                        isError: true,
+                                          );
+                                        },
                                       );
-                                      return;
-                                    }
-                                  } else {
+                                    },
+                                  );
+                                  // ----------------------------------------------------
+                                  // نهاية التصميم الجديد
+                                  // ----------------------------------------------------
+
+                                  if (type == null) return;
+
+                                  setState(() => _isLoading = true);
+                                  try {
+                                    // إظهار رسالة للمستخدم حول نوع الطلب المختار
                                     _showToastNotification(
                                       context,
-                                      'قم بتشغيل الموقع',
-                                      isError: true,
+                                      'تم اختيار طلب ${type == 'delivery'
+                                          ? 'توصيل'
+                                          : type == 'takeaway'
+                                          ? 'سفري'
+                                          : 'داخل المطعم'}',
+                                      isError: false,
                                     );
-                                    return;
-                                  }
-                                }
-                                var permission =
-                                    await Geolocator.checkPermission();
-                                if (permission == LocationPermission.denied) {
-                                  permission =
-                                      await Geolocator.requestPermission();
-                                }
-                                if (permission ==
-                                    LocationPermission.deniedForever) {
-                                  final goSettings =
-                                      await showDialog<bool>(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text(
-                                            'صلاحية الموقع مطلوبة',
-                                          ),
-                                          content: const Text(
-                                            'يجب منح صلاحية الوصول للموقع. هل تريد فتح إعدادات التطبيق؟',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, false),
-                                              child: const Text('لا'),
-                                            ),
-                                            ElevatedButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, true),
-                                              child: const Text(
-                                                'فتح الإعدادات',
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ) ??
-                                      false;
-                                  if (goSettings) {
-                                    await Geolocator.openAppSettings();
-                                  }
-                                  _showToastNotification(
-                                    context,
-                                    'قم بتفعيل صلاحية الموقع',
-                                    isError: true,
-                                  );
-                                  return;
-                                }
-                                if (permission == LocationPermission.denied) {
-                                  _showToastNotification(
-                                    context,
-                                    'صلاحية الموقع مطلوبة لطلب التوصيل',
-                                    isError: true,
-                                  );
-                                  return;
-                                }
-                                Position pos;
-                                if (Platform.isAndroid) {
-                                  try {
-                                    pos =
-                                        await Geolocator.getPositionStream(
-                                          locationSettings: AndroidSettings(
-                                            accuracy: LocationAccuracy
-                                                .bestForNavigation,
-                                            forceLocationManager: true,
-                                            distanceFilter: 0,
-                                            intervalDuration: Duration(
-                                              seconds: 1,
-                                            ),
-                                          ),
-                                        ).first.timeout(
-                                          const Duration(seconds: 10),
-                                        );
-                                  } catch (_) {
-                                    pos = await Geolocator.getCurrentPosition(
-                                      desiredAccuracy:
-                                          LocationAccuracy.bestForNavigation,
-                                      timeLimit: const Duration(seconds: 10),
-                                    );
-                                  }
-                                } else {
-                                  pos = await Geolocator.getCurrentPosition(
-                                    desiredAccuracy:
-                                        LocationAccuracy.bestForNavigation,
-                                    timeLimit: const Duration(seconds: 10),
-                                  );
-                                }
-                                lat = pos.latitude;
-                                long = pos.longitude;
 
-                                _showToastNotification(
-                                  context,
-                                  'تم الحصول على الموقع بنجاح: ${lat.toStringAsFixed(4)}, ${long.toStringAsFixed(4)}',
-                                  isError: false,
-                                );
-                              }
-                              orderId = await repo.createOrder(
-                                customerName: name,
-                                phone: phone,
-                                address: address,
-                                orderType: type,
-                                items: items,
-                                customerLat: lat,
-                                customerLong: long,
-                              );
-                            } catch (e) {
-                              orderId = null;
-                            }
-                            if (orderId == null) {
-                              if (!context.mounted) return;
-                              _showToastNotification(
-                                context,
-                                'تعذر إرسال الطلب',
-                                isError: true,
-                              );
-                              return;
-                            }
-                            cart.clear();
-                            if (!context.mounted) return;
-                            _showToastNotification(
-                              context,
-                              'تم إرسال الطلب',
-                              isError: false,
-                            );
-                            await Future.delayed(const Duration(seconds: 2));
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            'إتمام الطلب',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                                    final repo = OrderRepository();
+                                    final items = cart.items
+                                        .map(
+                                          (ci) => OrderItem(
+                                            item: ci.item,
+                                            quantity: ci.quantity,
+                                          ),
+                                        )
+                                        .toList();
+                                    final name = profile.name.isNotEmpty
+                                        ? profile.name
+                                        : 'زبون';
+                                    final phone = profile.phone.isNotEmpty
+                                        ? profile.phone
+                                        : '0770';
+                                    final address = profile.address.isNotEmpty
+                                        ? profile.address
+                                        : 'بدون';
+                                    String? orderId;
+                                    
+                                    double? lat;
+                                    double? long;
+                                    if (type == 'delivery') {
+                                      _showToastNotification(
+                                        context,
+                                        'جاري الحصول على موقعك للتوصيل...',
+                                        isError: false,
+                                      );
+
+                                      var serviceEnabled =
+                                          await Geolocator.isLocationServiceEnabled();
+                                      if (!serviceEnabled) {
+                                        final accept =
+                                            await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text('تشغيل الموقع'),
+                                                content: const Text(
+                                                  'يرجى تشغيل الـ GPS لإتمام طلب التوصيل. هل تريد فتح الإعدادات؟',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context, false),
+                                                    child: const Text('لا'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context, true),
+                                                    child: const Text('نعم'),
+                                                  ),
+                                                ],
+                                              ),
+                                            ) ??
+                                            false;
+                                        if (accept) {
+                                          await Geolocator.openLocationSettings();
+                                          serviceEnabled =
+                                              await Geolocator.isLocationServiceEnabled();
+                                          if (!serviceEnabled) {
+                                            if (mounted) {
+                                              _showToastNotification(
+                                                context,
+                                                'قم بتشغيل الموقع',
+                                                isError: true,
+                                              );
+                                            }
+                                            return;
+                                          }
+                                        } else {
+                                          if (mounted) {
+                                            _showToastNotification(
+                                              context,
+                                              'قم بتشغيل الموقع',
+                                              isError: true,
+                                            );
+                                          }
+                                          return;
+                                        }
+                                      }
+                                      var permission =
+                                          await Geolocator.checkPermission();
+                                      if (permission == LocationPermission.denied) {
+                                        permission =
+                                            await Geolocator.requestPermission();
+                                      }
+                                      if (permission ==
+                                          LocationPermission.deniedForever) {
+                                        final goSettings =
+                                            await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text(
+                                                  'صلاحية الموقع مطلوبة',
+                                                ),
+                                                content: const Text(
+                                                  'يجب منح صلاحية الوصول للموقع. هل تريد فتح إعدادات التطبيق؟',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context, false),
+                                                    child: const Text('لا'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(context, true),
+                                                    child: const Text(
+                                                      'فتح الإعدادات',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ) ??
+                                            false;
+                                        if (goSettings) {
+                                          await Geolocator.openAppSettings();
+                                        }
+                                        if (mounted) {
+                                          _showToastNotification(
+                                            context,
+                                            'قم بتفعيل صلاحية الموقع',
+                                            isError: true,
+                                          );
+                                        }
+                                        return;
+                                      }
+                                      if (permission == LocationPermission.denied) {
+                                        if (mounted) {
+                                          _showToastNotification(
+                                            context,
+                                            'صلاحية الموقع مطلوبة لطلب التوصيل',
+                                            isError: true,
+                                          );
+                                        }
+                                        return;
+                                      }
+                                      
+                                      Position pos;
+                                      if (Platform.isAndroid) {
+                                        try {
+                                          pos =
+                                              await Geolocator.getPositionStream(
+                                                locationSettings: AndroidSettings(
+                                                  accuracy: LocationAccuracy
+                                                      .high, // Changed from bestForNavigation
+                                                  forceLocationManager: true,
+                                                  distanceFilter: 0,
+                                                  intervalDuration: Duration(
+                                                    seconds: 1,
+                                                  ),
+                                                ),
+                                              ).first.timeout(
+                                                const Duration(seconds: 10),
+                                              );
+                                        } catch (_) {
+                                          pos = await Geolocator.getCurrentPosition(
+                                            desiredAccuracy:
+                                                LocationAccuracy.high, // Changed from bestForNavigation
+                                            timeLimit: const Duration(seconds: 10),
+                                          );
+                                        }
+                                      } else {
+                                        pos = await Geolocator.getCurrentPosition(
+                                          desiredAccuracy:
+                                              LocationAccuracy.high, // Changed from bestForNavigation
+                                          timeLimit: const Duration(seconds: 10),
+                                        );
+                                      }
+                                      lat = pos.latitude;
+                                      long = pos.longitude;
+
+                                      if (mounted) {
+                                        _showToastNotification(
+                                          context,
+                                          'تم الحصول على الموقع بنجاح: ${lat.toStringAsFixed(4)}, ${long.toStringAsFixed(4)}',
+                                          isError: false,
+                                        );
+                                      }
+                                    }
+                                    orderId = await repo.createOrder(
+                                      customerName: name,
+                                      phone: phone,
+                                      address: address,
+                                      orderType: type,
+                                      items: items,
+                                      customerLat: lat,
+                                      customerLong: long,
+                                    );
+
+                                    if (orderId == null) {
+                                      if (mounted) {
+                                        _showToastNotification(
+                                          context,
+                                          'تعذر إرسال الطلب',
+                                          isError: true,
+                                        );
+                                      }
+                                      return;
+                                    }
+                                    
+                                    cart.clear();
+                                    if (mounted) {
+                                      _showToastNotification(
+                                        context,
+                                        'تم إرسال الطلب',
+                                        isError: false,
+                                      );
+                                    }
+                                    
+                                    await Future.delayed(const Duration(seconds: 2));
+                                    if (mounted) {
+                                      Navigator.pop(context);
+                                    }
+
+                                  } catch (e) {
+                                    if (mounted) {
+                                      _showToastNotification(
+                                        context,
+                                        'حدث خطأ: $e',
+                                        isError: true,
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isLoading = false);
+                                  }
+                                },
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'إتمام الطلب',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
