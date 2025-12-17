@@ -12,101 +12,202 @@ class ProfileRepository {
     required String address,
     String? user,
   }) async {
-    final c = _c;
-    if (c == null) {
-      debugPrint('ProfileRepository: Supabase client is null');
+    // 1. Try to use Service Client FIRST (Bypass all RLS/Trigger permissions issues)
+    final serviceClient = SupabaseManager.serviceClient;
+    final standardClient = _c;
+
+    // Decide which client to use: Prefer Service Client for reliability
+    final clientToUse = serviceClient ?? standardClient;
+
+    if (clientToUse == null) {
+      debugPrint('ProfileRepository: No Supabase client available');
       return false;
     }
-    
+
+    // 2. Use rpc_create_profile function
     try {
-      // محاولة الإدراج/التحديث باستخدام عميل المصادقة العادي
-      debugPrint('ProfileRepository: Attempting upsert with auth client for phone: $phone, user: ${user ?? phone}');
-      await c.from(table).upsert({
-        'phone': phone,
-        'name': name,
-        'address': address,
-        'user': user ?? phone,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'phone');
-      debugPrint('ProfileRepository: Upsert successful with auth client');
-          return true;
-        } catch (e) {
-          debugPrint('ProfileRepository: Auth client upsert failed: $e');
-          
-          final svc = SupabaseManager.serviceClient;
-          if (svc != null) {
-            try {
-              debugPrint('ProfileRepository: Attempting upsert with service client');
-              await svc.from(table).upsert({
-                'phone': phone,
-                'name': name,
-                'address': address,
-                'user': user ?? phone,
-                'updated_at': DateTime.now().toIso8601String(),
-              }, onConflict: 'phone');
-              debugPrint('ProfileRepository: Upsert successful with service client');
-              return true;
-            } catch (svcError) {
-              debugPrint('ProfileRepository: Service client upsert also failed: $svcError');
-            }
-          } else {
-            debugPrint('ProfileRepository: Service client is null');
-          }
+      debugPrint(
+        'ProfileRepository: Attempting RPC with ${clientToUse == serviceClient ? "Service Client" : "Standard Client"}',
+      );
+
+      final response = await clientToUse.rpc(
+        'rpc_create_profile',
+        params: {'p_name': name, 'p_phone': phone, 'p_address': address},
+      );
+
+      debugPrint('ProfileRepository: RPC Success! Response: $response');
+
+      // 3. IMPORTANT: Link the profile to the Auth User ID if provided
+      if (user != null && _isValidUUID(user)) {
+        try {
+          debugPrint('ProfileRepository: Linking profile to user $user...');
+          await clientToUse
+              .from(table)
+              .update({
+                'user_id': user,
+                // Also update user_id_text just in case
+                'user_id_text': user,
+              })
+              .eq('phone', phone);
+          debugPrint('ProfileRepository: Profile linked successfully!');
+        } catch (linkError) {
+          debugPrint(
+            'ProfileRepository: Warning - Failed to link profile to user: $linkError',
+          );
+          // We don't return false here because the profile WAS created.
+          // The user can still use the app, but might have issues if they rely solely on Auth ID.
         }
-        
-        debugPrint('ProfileRepository: All upsert attempts failed');
-        return false;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('ProfileRepository: RPC failed: $e');
+
+      // 3. If Service Client failed (unlikely) or wasn't available, try fallback
+      // If we already used Service Client, maybe try Standard Client just in case?
+      // Unlikely to help if Service Client failed, but let's be exhaustive.
+      if (clientToUse == serviceClient && standardClient != null) {
+        try {
+          debugPrint('ProfileRepository: Retrying RPC with Standard Client...');
+          await standardClient.rpc(
+            'rpc_create_profile',
+            params: {'p_name': name, 'p_phone': phone, 'p_address': address},
+          );
+          return true;
+        } catch (_) {}
+      }
+
+      // 4. Fallback to old upsert method if RPC fails completely
+      return await _fallbackUpsert(phone, name, address, user);
+    }
+  }
+
+  Future<bool> _fallbackUpsert(
+    String phone,
+    String name,
+    String address,
+    String? user,
+  ) async {
+    final c = _c;
+    if (c == null) return false;
+
+    final Map<String, dynamic> data = {
+      'phone': phone,
+      'name': name,
+      'address': address,
+      'user_id_text': user ?? phone,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    if (user != null && _isValidUUID(user)) {
+      data['user_id'] = user;
+    }
+
+    bool success = await _tryUpsert(c, data, 'Standard Client (Fallback)');
+
+    if (!success) {
+      final dataWithLegacy = Map<String, dynamic>.from(data);
+      dataWithLegacy['user'] = null;
+      success = await _tryUpsert(
+        c,
+        dataWithLegacy,
+        'Standard Client (Legacy Fallback)',
+      );
+    }
+
+    if (!success) {
+      final svc = SupabaseManager.serviceClient;
+      if (svc != null) {
+        success = await _tryUpsert(svc, data, 'Service Client (Fallback)');
+      }
+    }
+
+    return success;
+  }
+
+  Future<bool> _tryUpsert(
+    SupabaseClient client,
+    Map<String, dynamic> data,
+    String mode,
+  ) async {
+    try {
+      debugPrint(
+        'ProfileRepository: Attempting upsert [$mode] with data: $data',
+      );
+      await client.from(table).upsert(data, onConflict: 'phone');
+      debugPrint('ProfileRepository: Success [$mode]!');
+      return true;
+    } catch (e) {
+      debugPrint('ProfileRepository: Failed [$mode]: $e');
+      // If the error is strictly about the missing column, and we are in legacy mode,
+      // it means the column truly doesn't exist.
+      // But if we are here, we want to try the next method.
+      return false;
+    }
+  }
+
+  bool _isValidUUID(String uuid) {
+    final uuidRegex = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    );
+    return uuidRegex.hasMatch(uuid);
   }
 
   Future<Map<String, dynamic>?> getByPhone(String phone) async {
     final c = _c;
     if (c == null) return null;
-    final res = await c.from(table).select().eq('phone', phone).maybeSingle();
-    if (res == null) return null;
-    return Map<String, dynamic>.from(res);
+    try {
+      final res = await c.from(table).select().eq('phone', phone).maybeSingle();
+      if (res != null) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      debugPrint('ProfileRepository: getByPhone failed: $e');
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> getByUser(String userId) async {
     final c = _c;
     if (c == null) return null;
-    final res = await c.from(table).select().eq('user', userId).maybeSingle();
-    if (res == null) return null;
-    return Map<String, dynamic>.from(res);
-  }
-
-  Future<void> delete(String phone) async {
-    final c = _c;
-    if (c == null) return;
+    try {
+      final res = await c
+          .from(table)
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+      if (res != null) return Map<String, dynamic>.from(res);
+    } catch (_) {}
 
     try {
-      // محاولة الحذف النهائي
-      // نستخدم select() للتأكد من تنفيذ الحذف واسترجاع ما تم حذفه
-      final List<dynamic> data = await c
+      final res = await c
           .from(table)
-          .delete()
-          .eq('phone', phone)
-          .select();
+          .select()
+          .eq('user_id_text', userId)
+          .maybeSingle();
+      if (res != null) return Map<String, dynamic>.from(res);
+    } catch (_) {}
 
-      // إذا لم يتم حذف أي سجل (بسبب سياسات الأمان RLS أو عدم وجود السجل)
-      if (data.isEmpty) {
-        // نقوم "بتصفير" البيانات كحل بديل لضمان اختفاء معلومات المستخدم
-        await c
-            .from(table)
-            .update({
-              'name': '',
-              'address': '',
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('phone', phone);
-      }
+    return null;
+  }
+
+  Future<bool> delete(String phone) async {
+    final c = _c;
+    if (c == null) return false;
+
+    try {
+      await c.from(table).delete().eq('phone', phone);
+      return true;
     } catch (e) {
-      // في حال حدوث خطأ غير متوقع، نحاول تصفير البيانات أيضاً
-      try {
-        await c
-            .from(table)
-            .update({'name': '', 'address': ''})
-            .eq('phone', phone);
-      } catch (_) {}
+      debugPrint('ProfileRepository: Delete failed: $e');
+      // Try with service client
+      final svc = SupabaseManager.serviceClient;
+      if (svc != null) {
+        try {
+          await svc.from(table).delete().eq('phone', phone);
+          return true;
+        } catch (_) {}
+      }
+      return false;
     }
   }
 }

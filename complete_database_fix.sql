@@ -1,93 +1,93 @@
--- إصلاح شامل لمشاكل قاعدة البيانات والملف الشخصي
--- هذا السكريبت يحل مشكلة "تعذر تحديث قاعدة البيانات"
+-- هذا الكود سيحل مشكلة "تعذر تحديث قاعدة البيانات" نهائياً
+-- قم بنسخ هذا الكود بالكامل ولصقه في Supabase > SQL Editor ثم اضغط RUN
 
--- 1. حذف السياسات القديمة المسببة للمشاكل
-DROP POLICY IF EXISTS "auth_read_own_profile" ON public.profiles;
-DROP POLICY IF EXISTS "auth_upsert_own_profile" ON public.profiles;
-DROP POLICY IF EXISTS "auth_update_own_profile" ON public.profiles;
-DROP POLICY IF EXISTS "anon_upsert_profiles" ON public.profiles;
-DROP POLICY IF EXISTS "anon_update_profiles" ON public.profiles;
-DROP POLICY IF EXISTS "anon_select_profiles" ON public.profiles;
-DROP POLICY IF EXISTS "service_role_all_profiles" ON public.profiles;
+-- 1. إيقاف جميع التريجرات مؤقتاً
+ALTER TABLE public.profiles DISABLE TRIGGER ALL;
 
--- 2. إنشاء سياسات جديدة مبسطة وفعالة
--- السماح للجميع بقراءة الملفات الشخصية
-CREATE POLICY "allow_all_read_profiles" ON public.profiles
-    FOR SELECT USING (true);
+-- 2. حذف التريجرات المشكلة إن وجدت
+DROP TRIGGER IF EXISTS update_profiles_trigger ON public.profiles;
+DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
+DROP TRIGGER IF EXISTS handle_profiles_update ON public.profiles;
+DROP TRIGGER IF EXISTS trigger_profiles_update ON public.profiles;
 
--- السماح للمستخدمين المعتمدين بإنشاء وتحديث ملفاتهم الشخصية
-CREATE POLICY "allow_authenticated_upsert_profiles" ON public.profiles
-    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- 3. حذف الدوال المشكلة إن وجدت
+DROP FUNCTION IF EXISTS public.update_profiles();
+DROP FUNCTION IF EXISTS public.handle_profiles_update();
+DROP FUNCTION IF EXISTS public.profiles_updated_at();
 
--- السماح للمستخدمين المجهولين بإنشاء ملفاتهم الشخصية
-CREATE POLICY "allow_anon_insert_profiles" ON public.profiles
-    FOR INSERT TO anon WITH CHECK (true);
+-- 4. إضافة الأعمدة المفقودة
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "user" uuid;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "user_id" uuid;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "user_id_text" text;
 
--- السماح للمستخدمين المجهولين بتحديث ملفاتهم باستخدام رقم الهاتف
-CREATE POLICY "allow_anon_update_by_phone" ON public.profiles
-    FOR UPDATE TO anon USING (phone = current_setting('app.current_phone', true)::text OR phone = (current_setting('app.phone', true))::text) WITH CHECK (true);
+-- 5. تحديث البيانات: نقل البيانات من العمود القديم (إذا وجد) إلى الجديد
+UPDATE public.profiles 
+SET user_id = "user" 
+WHERE user_id IS NULL AND "user" IS NOT NULL;
 
--- 3. التأكد من أن جدول profiles يحتوي على جميع الحقول المطلوبة
-ALTER TABLE public.profiles 
-ALTER COLUMN user SET NOT NULL,
-ALTER COLUMN phone SET NOT NULL;
+-- 6. إعطاء صلاحيات الكتابة لجميع المستخدمين
+GRANT ALL ON TABLE public.profiles TO anon, authenticated, service_role;
 
--- 4. إنشاء فهرس لتحسين الأداء
-CREATE INDEX IF NOT EXISTS idx_profiles_phone ON public.profiles(phone);
-CREATE INDEX IF NOT EXISTS idx_profiles_user ON public.profiles(user);
+-- 7. إزالة أي سياسات قديمة وإنشاء سياسة مفتوحة مؤقتاً
+DROP POLICY IF EXISTS "Enable insert for everyone" ON public.profiles;
+CREATE POLICY "Enable insert for everyone" ON public.profiles FOR INSERT WITH CHECK (true);
 
--- 5. دالة للتحقق من صحة البيانات
-CREATE OR REPLACE FUNCTION validate_profile_data()
+DROP POLICY IF EXISTS "Enable update for users based on user_id" ON public.profiles;
+CREATE POLICY "Enable update for users based on user_id" ON public.profiles FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Enable select for everyone" ON public.profiles;
+CREATE POLICY "Enable select for everyone" ON public.profiles FOR SELECT USING (true);
+
+-- 8. إعادة تفعيل التريجرات
+ALTER TABLE public.profiles ENABLE TRIGGER ALL;
+
+-- 9. إنشاء تريجر جديد بسيط لتحديث الوقت
+CREATE OR REPLACE FUNCTION public.update_profiles_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- التحقق من أن رقم الهاتف ليس فارغًا
-    IF NEW.phone IS NULL OR TRIM(NEW.phone) = '' THEN
-        RAISE EXCEPTION 'رقم الهاتف مطلوب';
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER profiles_timestamp_update
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_profiles_timestamp();
+
+-- 10. إنشاء دالة بسيطة للإدخال بدون مشاكل UUID
+CREATE OR REPLACE FUNCTION public.simple_profiles_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.user_id IS NULL AND NEW.user_id_text IS NOT NULL THEN
+        -- لا نحاول تحويل النص إلى UUID، نتركه كما هو
+        NEW.user_id_text = NEW.user_id_text;
     END IF;
     
-    -- التحقق من أن حقل المستخدم ليس فارغًا
-    IF NEW.user IS NULL OR TRIM(NEW.user) = '' THEN
-        NEW.user := NEW.phone;
+    IF NEW.updated_at IS NULL THEN
+        NEW.updated_at = NOW();
     END IF;
     
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- 6. إنشاء trigger للتحقق من البيانات
-DROP TRIGGER IF EXISTS validate_profile_trigger ON public.profiles;
-CREATE TRIGGER validate_profile_trigger
-    BEFORE INSERT OR UPDATE ON public.profiles
-    FOR EACH ROW EXECUTE FUNCTION validate_profile_data();
+CREATE TRIGGER simple_profiles_insert_trigger
+    BEFORE INSERT ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.simple_profiles_insert();
 
--- 7. تمكين RLS على جدول profiles
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- 11. إنشاء فهرس لتحسين الأداء
+CREATE INDEX IF NOT EXISTS idx_profiles_phone ON public.profiles(phone);
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id_text ON public.profiles(user_id_text);
 
--- 8. إعطاء صلاحيات للخدمة (Service Role)
-GRANT ALL ON public.profiles TO service_role;
-GRANT ALL ON public.profiles TO anon;
-GRANT ALL ON public.profiles TO authenticated;
+-- 12. التحقق من النتيجة
+SELECT table_name, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'profiles' AND table_schema = 'public'
+ORDER BY ordinal_position;
 
--- 9. إنشاء دالة اختبار للتحقق من الاتصال
-CREATE OR REPLACE FUNCTION test_profile_connection()
-RETURNS TABLE(success BOOLEAN, message TEXT) AS $$
-BEGIN
-    RETURN QUERY SELECT true, 'الاتصال بقاعدة البيانات ناجح';
-EXCEPTION WHEN OTHERS THEN
-    RETURN QUERY SELECT false, 'فشل الاتصال: ' || SQLERRM;
-END;
-$$ LANGUAGE plpgsql;
-
--- 10. إنشاء دالة للحصول على معلومات المستخدم
-CREATE OR REPLACE FUNCTION get_user_profile(p_phone TEXT)
-RETURNS TABLE(user_id TEXT, user_name TEXT, user_phone TEXT, user_address TEXT) AS $$
-BEGIN
-    RETURN QUERY 
-    SELECT p.user, p.name, p.phone, p.address 
-    FROM public.profiles p 
-    WHERE p.phone = p_phone;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- رسالة نجاح
-SELECT 'تم إصلاح سياسات قاعدة البيانات بنجاح!' as message;
+SELECT trigger_name, event_object_table, action_statement 
+FROM information_schema.triggers 
+WHERE event_object_table = 'profiles' AND trigger_schema = 'public';

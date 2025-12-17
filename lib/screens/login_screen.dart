@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     });
   }
-  
+
   Future<void> _checkProfileAndProceed() async {
     final c = SupabaseManager.client;
     final u = c?.auth.currentUser;
@@ -154,26 +154,106 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final user = SupabaseManager.client?.auth.currentUser;
+      // 1. Check/Ensure Authentication
+      final c = SupabaseManager.client;
+      var user = c?.auth.currentUser;
+
+      // Define userId to be used for upsert
+      String? userId = user?.id;
+
+      if (user == null) {
+        // Direct Registration Logic (Bypass Anonymous)
+        try {
+          debugPrint('LoginScreen: Starting direct registration with phone...');
+          final phone = _phoneController.text.trim();
+          if (phone.isEmpty) {
+            throw 'يرجى إدخال رقم الهاتف';
+          }
+
+          // Create a consistent email/password from phone
+          // Using a consistent domain ensures uniqueness per phone number
+          final fakeEmail = '$phone@ahlnanew.com';
+          final fakePassword = 'user_${phone}_pass_secure';
+
+          AuthResponse? authRes;
+          try {
+            // 1. Try to Sign Up (Create new user)
+            debugPrint('LoginScreen: Attempting Sign Up...');
+            authRes = await c?.auth.signUp(
+              email: fakeEmail,
+              password: fakePassword,
+            );
+          } catch (signUpError) {
+            // 2. If Sign Up fails (likely user already exists), try Sign In
+            debugPrint(
+              'LoginScreen: Sign Up failed ($signUpError), attempting Sign In...',
+            );
+            try {
+              authRes = await c?.auth.signInWithPassword(
+                email: fakeEmail,
+                password: fakePassword,
+              );
+            } catch (signInError) {
+              debugPrint(
+                'LoginScreen: Auth providers disabled or failed. Using Local ID Strategy.',
+              );
+
+              // Generate deterministic UUID from phone for offline/local-only mode support
+              final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+              // UUID format: 8-4-4-4-12 hex digits
+              // We use 00000000-0000-0000-0000-0 + 11 digits phone
+              // This is a valid UUID string
+              userId = '00000000-0000-0000-0000-0$cleanPhone';
+              debugPrint('LoginScreen: Generated Local ID: $userId');
+            }
+          }
+
+          if (authRes?.user != null) {
+            user = authRes?.user;
+            userId = user?.id;
+            debugPrint('LoginScreen: Auth successful! User ID: $userId');
+          } else if (userId == null) {
+            throw 'فشل إنشاء المعرف';
+          }
+        } catch (e) {
+          debugPrint('LoginScreen: Critical Auth Error: $e');
+          if (userId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('خطأ في المصادقة: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+        }
+      }
+
+      // Ensure we have a userId at this point if user object exists
+      if (userId == null && user != null) userId = user?.id;
+
       final profile = ProfileProvider.of(context);
       profile.set(
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
       );
+
       final repo = ProfileRepository();
       bool ok = false;
       try {
+        debugPrint('LoginScreen: Attempting upsert for user: $userId');
         ok = await repo.upsert(
           phone: profile.phone,
           name: profile.name,
           address: profile.address,
-          user: user?.id,
+          user: userId,
         );
       } catch (e) {
         debugPrint('LoginScreen: Error during upsert: $e');
       }
-      
+
+      // Save locally as backup and for offline access
       await Storage.saveProfile(
         name: profile.name,
         phone: profile.phone,
@@ -181,6 +261,8 @@ class _LoginScreenState extends State<LoginScreen>
       );
       if (!mounted) return;
       if (!ok) {
+        // Double check if it actually failed or if it's just a false negative?
+        // Ideally we trust 'ok'.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تعذر تحديث قاعدة البيانات، تم الحفظ محليًا'),
@@ -191,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم حفظ الملف الشخصي بنجاح'),
+            content: Text('تم التسجيل وحفظ البيانات بنجاح'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -308,55 +390,55 @@ class _LoginScreenState extends State<LoginScreen>
                       child: Column(
                         children: [
                           if (_showForm) ...[
-                          _buildFixedColorField(
-                            controller: _nameController,
-                            label: 'اسمك الكريم',
-                            icon: Icons.person,
-                            themeColor: primaryColor,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildFixedColorField(
-                            controller: _phoneController,
-                            label: 'رقم الهاتف (0770...)',
-                            icon: Icons.phone_android,
-                            themeColor: primaryColor,
-                            isPhone: true,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildFixedColorField(
-                            controller: _addressController,
-                            label: 'العنوان الكامل',
-                            icon: Icons.location_on,
-                            themeColor: primaryColor,
-                            isMultiLine: true,
-                          ),
-                          const SizedBox(height: 30),
+                            _buildFixedColorField(
+                              controller: _nameController,
+                              label: 'اسمك الكريم',
+                              icon: Icons.person,
+                              themeColor: primaryColor,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildFixedColorField(
+                              controller: _phoneController,
+                              label: 'رقم الهاتف (0770...)',
+                              icon: Icons.phone_android,
+                              themeColor: primaryColor,
+                              isPhone: true,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildFixedColorField(
+                              controller: _addressController,
+                              label: 'العنوان الكامل',
+                              icon: Icons.location_on,
+                              themeColor: primaryColor,
+                              isMultiLine: true,
+                            ),
+                            const SizedBox(height: 30),
 
-                          // زر الحفظ
-                          SizedBox(
-                            width: double.infinity,
-                            height: 55,
-                            child: ElevatedButton(
-                              onPressed: _submit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    primaryColor, // لون الزر نفس لون التطبيق
-                                foregroundColor: Colors.white,
-                                elevation: 8,
-                                shadowColor: primaryColor.withOpacity(0.4),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                            // زر الحفظ
+                            SizedBox(
+                              width: double.infinity,
+                              height: 55,
+                              child: ElevatedButton(
+                                onPressed: _submit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      primaryColor, // لون الزر نفس لون التطبيق
+                                  foregroundColor: Colors.white,
+                                  elevation: 8,
+                                  shadowColor: primaryColor.withOpacity(0.4),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                 ),
-                              ),
-                              child: const Text(
-                                'حفظ ومتابعة',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                child: const Text(
+                                  'حفظ ومتابعة',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
                           ],
                         ],
                       ),
