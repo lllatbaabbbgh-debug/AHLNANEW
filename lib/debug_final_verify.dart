@@ -1,4 +1,3 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/widgets.dart';
 import 'core/supabase_client.dart';
 import 'core/repos/profile_repository.dart';

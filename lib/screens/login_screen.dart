@@ -230,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       // Ensure we have a userId at this point if user object exists
-      if (userId == null && user != null) userId = user?.id;
+      if (userId == null && user != null) userId = user.id;
 
       final profile = ProfileProvider.of(context);
       profile.set(
