@@ -65,8 +65,8 @@ Future<void> main() async {
   }
   final themeController = ThemeController();
 
-  // Add 0.5s delay before removing splash screen
-  await Future.delayed(const Duration(milliseconds: 500));
+  // Add 1s delay before removing splash screen
+  await Future.delayed(const Duration(seconds: 1));
   FlutterNativeSplash.remove();
 
   runApp(
